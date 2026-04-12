@@ -283,21 +283,24 @@ class TuningToolApp:
 
     # --- Metric Card with Sparkline ---
     def _build_metric_card(self, parent, key, label, index):
-        card = tk.Frame(parent, bg=THEME['bg_surface'], highlightbackground='#1e1e38',
+        card_bg = '#1c2640'
+        card = tk.Frame(parent, bg=card_bg, highlightbackground='#2a3555',
                          highlightthickness=1, padx=8, pady=4)
         card.grid(row=0, column=index, padx=4, pady=2, sticky='nsew')
 
-        # Accent line at top
-        accent = tk.Frame(card, bg=THEME['accent_light'], height=2)
+        # Accent line at top — use channel-specific color
+        plot_keys = getattr(cfg, 'PLOT_KEYS', [])
+        accent_color = plot_keys[index][1] if index < len(plot_keys) else THEME['accent_light']
+        accent = tk.Frame(card, bg=accent_color, height=3)
         accent.pack(fill='x')
 
         # Top row: label + trend arrow
-        top_row = tk.Frame(card, bg=THEME['bg_surface'])
+        top_row = tk.Frame(card, bg=card_bg)
         top_row.pack(fill='x')
-        tk.Label(top_row, text=label, bg=THEME['bg_surface'], fg=THEME['text_muted'],
+        tk.Label(top_row, text=label, bg=card_bg, fg=THEME['text_muted'],
                  font=('Segoe UI', 9)).pack(side='left')
 
-        trend_label = tk.Label(top_row, text='', bg=THEME['bg_surface'],
+        trend_label = tk.Label(top_row, text='', bg=card_bg,
                                fg=THEME['text_muted'], font=('Segoe UI', 9))
         trend_label.pack(side='right')
         if not hasattr(self, '_trend_labels'):
@@ -306,14 +309,15 @@ class TuningToolApp:
 
         # Value
         tk.Label(card, textvariable=self.metric_vars.get(key, tk.StringVar(value='--')),
-                 bg=THEME['bg_surface'], fg=THEME['text'],
+                 bg=card_bg, fg=THEME['text'],
                  font=('Consolas', 16, 'bold')).pack(anchor='w')
 
-        # Sparkline canvas
-        spark_canvas = tk.Canvas(card, bg=THEME['bg_surface'], highlightthickness=0,
+        # Sparkline canvas — store channel color alongside canvas
+        line_color = plot_keys[index][1] if index < len(plot_keys) else THEME['accent_light']
+        spark_canvas = tk.Canvas(card, bg=card_bg, highlightthickness=0,
                                   width=80, height=18)
         spark_canvas.pack(fill='x', pady=(2, 0))
-        self._sparkline_canvases[key] = spark_canvas
+        self._sparkline_canvases[key] = (spark_canvas, line_color)
 
     # --- Chart Area (left column) ---
     def _build_chart_area(self, parent):
@@ -337,8 +341,8 @@ class TuningToolApp:
         self.chart_canvas.bind('<Leave>', self._on_chart_leave)
 
         # Minimap canvas (below chart)
-        self.minimap_canvas = tk.Canvas(chart_frame, bg='#0b0f1a', highlightthickness=0,
-                                         height=40)
+        self.minimap_canvas = tk.Canvas(chart_frame, bg='#131325', highlightthickness=0,
+                                         height=45)
         self.minimap_canvas.pack(fill='x', padx=0, pady=(0, 0))
         self.minimap_canvas.bind('<ButtonPress-1>', self._on_minimap_press)
         self.minimap_canvas.bind('<B1-Motion>', self._on_minimap_drag)
@@ -389,7 +393,7 @@ class TuningToolApp:
 
     # --- Right Panel: connection + status + notebook + commands + send ---
     def _build_right_panel(self, parent):
-        right = tk.Frame(parent, bg=THEME['bg_deep'])
+        right = tk.Frame(parent, bg=THEME['bg_mid'])
 
         # Connection header (collapsible)
         self._build_connection_header(right)
@@ -677,23 +681,28 @@ class TuningToolApp:
                 if len(hist) > self.sparkline_max:
                     del hist[:-self.sparkline_max]
 
-                # Update trend arrow
+                # Update trend arrow with delta value
                 if key in getattr(self, '_trend_labels', {}):
                     if len(hist) >= 2:
-                        diff = hist[-1] - hist[-2]
-                        if diff > 0.01:
-                            self._trend_labels[key].config(text='\u25B2', fg=THEME['ok'])
-                        elif diff < -0.01:
-                            self._trend_labels[key].config(text='\u25BC', fg=THEME['danger'])
+                        delta = hist[-1] - hist[-2]
+                        if delta > 0.01:
+                            color = THEME['ok']
+                            arrow = '\u25B2'
+                        elif delta < -0.01:
+                            color = THEME['danger']
+                            arrow = '\u25BC'
                         else:
-                            self._trend_labels[key].config(text='\u25C6', fg=THEME['text_dim'])
+                            color = THEME['text_dim']
+                            arrow = '\u25C6'
+                        self._trend_labels[key].config(
+                            fg=color, text=f'{arrow} {abs(delta):.2f}')
 
                 # Draw sparkline
                 if key in self._sparkline_canvases:
                     self._draw_sparkline(key)
 
     def _draw_sparkline(self, key):
-        canvas = self._sparkline_canvases[key]
+        canvas, line_color = self._sparkline_canvases[key]
         canvas.delete('all')
         data = self.sparkline_data.get(key, [])
         if len(data) < 2:
@@ -717,7 +726,7 @@ class TuningToolApp:
             points.extend((x, y))
 
         if len(points) >= 4:
-            canvas.create_line(*points, fill=THEME['accent_light'], width=1, smooth=True)
+            canvas.create_line(*points, fill=line_color, width=1, smooth=True)
 
     # ======================================================================
     # Chart Zoom / Pan
