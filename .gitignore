@@ -6,3 +6,4 @@ desktop/runtime/
 *.exe
 .vscode/
 .idea/
+.superpowers/

@@ -117,6 +117,10 @@ COMMAND_TABS = [
 # ==================== Custom State File ====================
 CUSTOM_STATE_FILE = 'latest_yaw_state.json'
 
+# ==================== Optional UI Settings ====================
+# MAX_PLOT_POINTS = 2000      # Max stored data points (default 2000)
+# ACCENT_COLOR = '#7c3aed'    # Override accent color
+
 # ==================== Simulation ====================
 def build_simulated_packet(tick):
     t = tick * 0.1

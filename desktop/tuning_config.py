@@ -88,6 +88,10 @@ COMMAND_TABS = []
 # Set to None to disable custom state file.
 CUSTOM_STATE_FILE = None   # e.g., 'latest_custom_state.json'
 
+# ==================== Optional UI Settings ====================
+# MAX_PLOT_POINTS = 2000      # Max stored data points (default 2000)
+# ACCENT_COLOR = '#7c3aed'    # Override accent color
+
 # ==================== Simulation ====================
 def build_simulated_packet(tick):
     """Generate a fake telemetry line for simulation mode. Return None to disable."""
