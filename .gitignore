@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+desktop/runtime/
+*.o
+*.obj
+*.exe
+.vscode/
+.idea/
