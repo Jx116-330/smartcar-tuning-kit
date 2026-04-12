@@ -1312,17 +1312,44 @@ class TuningToolApp:
         class Handler(BaseHTTPRequestHandler):
             def log_message(self, fmt, *args): pass
 
+            def _cors_headers(self):
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+                self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+
             def _json_response(self, data, code=200):
                 body = json.dumps(data, ensure_ascii=False, default=str).encode('utf-8')
                 self.send_response(code)
                 self.send_header('Content-Type', 'application/json; charset=utf-8')
                 self.send_header('Content-Length', str(len(body)))
+                self._cors_headers()
                 self.end_headers()
                 self.wfile.write(body)
 
+            def _serve_file(self, filepath, content_type):
+                try:
+                    with open(filepath, 'rb') as f:
+                        body = f.read()
+                    self.send_response(200)
+                    self.send_header('Content-Type', content_type)
+                    self.send_header('Content-Length', str(len(body)))
+                    self._cors_headers()
+                    self.end_headers()
+                    self.wfile.write(body)
+                except FileNotFoundError:
+                    self._json_response({'error': 'dashboard.html not found'}, 404)
+
+            def do_OPTIONS(self):
+                self.send_response(204)
+                self._cors_headers()
+                self.end_headers()
+
             def do_GET(self):
                 path = self.path.split('?')[0].rstrip('/')
-                if path == '/latest':
+                if path == '' or path == '/dashboard':
+                    dashboard = Path(__file__).resolve().parent / 'dashboard.html'
+                    self._serve_file(str(dashboard), 'text/html; charset=utf-8')
+                elif path == '/latest':
                     with app.telemetry_lock:
                         payload = dict(app.latest_parsed)
                         payload['custom_state'] = {k: dict(v) for k, v in app.custom_state.items()}
