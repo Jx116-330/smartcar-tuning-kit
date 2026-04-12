@@ -844,7 +844,7 @@ class TuningToolApp:
                 self.sim_tick += 1
             except Exception:
                 pass
-            time.sleep(0.1)
+            time.sleep(0.016)  # ~60fps simulation
 
     # ======================================================================
     # Snapshot API (for HTTP)
