@@ -64,7 +64,7 @@ LATEST_TEXT_PATH = DATA_DIR / 'latest_telemetry.txt'
 LATEST_JSON_PATH = DATA_DIR / 'latest_telemetry.json'
 HISTORY_JSONL_PATH = DATA_DIR / 'telemetry_history.jsonl'
 MAX_HISTORY = 500
-MAX_PLOT_POINTS = 120
+MAX_PLOT_POINTS = getattr(cfg, 'MAX_PLOT_POINTS', 2000)
 
 # ---------------------------------------------------------------------------
 # Glassmorphism Dark Theme
@@ -104,16 +104,6 @@ THEME = {
 }
 CHART_COLORS = [THEME['ch0'], THEME['ch1'], THEME['ch2'], THEME['ch3'],
                 THEME['ch4'], THEME['ch5'], THEME['ch6']]
-
-# Backwards-compat alias (will be removed in later tasks)
-# NOTE: glass_border / accent_bg contain alpha and cannot be used directly
-# by classic tk widgets, so we use opaque approximations here.
-CARD_THEME = {
-    'bg': THEME['bg_deep'], 'panel': THEME['bg_mid'], 'border': '#1e1e38',
-    'title': THEME['text_muted'], 'value': THEME['text'], 'muted': THEME['text_muted'],
-    'accent': THEME['accent_light'], 'ok': THEME['ok'], 'warn': THEME['warn'],
-    'danger': THEME['danger'],
-}
 
 def try_parse_number(value: str):
     try:
@@ -160,7 +150,7 @@ class TuningToolApp:
 
     def __init__(self, root: ttkb.Window):
         self.root = root
-        root.configure(bg='#0f0f23')
+        root.configure(bg=THEME['bg_deep'])
 
         DATA_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -213,6 +203,19 @@ class TuningToolApp:
         self.plot_fixed_min = tk.StringVar(value='-50')
         self.plot_fixed_max = tk.StringVar(value='50')
 
+        # Zoom state
+        self.zoom_view_start = 0
+        self.zoom_view_count = 0
+        self.zoom_auto_follow = True
+        self.zoom_drag_start = None
+        self.chart_crosshair_x = None
+
+        # Sparkline
+        self.sparkline_data = {k: [] for k, _ in getattr(cfg, 'PRIMARY_METRICS', [])}
+        self.sparkline_max = 20
+        self._sparkline_canvases = {}
+        self._hover_pending = False
+
         # Custom tab vars
         self._custom_tab_vars = {}
         for tab in getattr(cfg, 'CUSTOM_TABS', []):
@@ -226,179 +229,179 @@ class TuningToolApp:
         # Command tab param vars
         self._cmd_param_vars = {}
 
+        # Connection panel state
+        self._conn_panel_expanded = False
+
         self._build_ui()
         self.start_http_server()
         self.root.after(100, self.process_queue)
         root.protocol("WM_DELETE_WINDOW", self.on_close)
 
     # ======================================================================
-    # UI Construction
+    # UI Construction - Two Column Layout
     # ======================================================================
     def _build_ui(self):
-        f = tk.Frame(self.root, bg=CARD_THEME['bg'])
-        f.pack(fill='both', expand=True)
+        outer = tk.Frame(self.root, bg=THEME['bg_deep'])
+        outer.pack(fill='both', expand=True)
 
-        main_pw = tk.PanedWindow(f, orient='vertical', bg=CARD_THEME['bg'],
+        # Top metrics bar spanning full width
+        self._build_top_bar(outer)
+
+        # Main area: vertical paned - workarea + console
+        main_pw = tk.PanedWindow(outer, orient='vertical', bg=THEME['bg_deep'],
                                   sashwidth=4, sashrelief='flat')
         main_pw.pack(fill='both', expand=True)
 
-        workarea = tk.PanedWindow(main_pw, orient='horizontal', bg=CARD_THEME['bg'],
+        workarea = tk.PanedWindow(main_pw, orient='horizontal', bg=THEME['bg_deep'],
                                    sashwidth=4, sashrelief='flat')
         main_pw.add(workarea, stretch='always')
 
-        sidebar = self._build_sidebar(workarea)
-        center = self._build_center(workarea)
+        # Two columns: chart (left) + right panel
+        chart_area = self._build_chart_area(workarea)
         right = self._build_right_panel(workarea)
 
-        workarea.add(sidebar, width=220, minsize=180, stretch='never')
-        workarea.add(center, width=580, minsize=300, stretch='always')
-        workarea.add(right, width=350, minsize=250, stretch='always')
+        workarea.add(chart_area, width=700, minsize=400, stretch='always')
+        workarea.add(right, width=380, minsize=280, stretch='always')
 
         console = self._build_console(main_pw)
         main_pw.add(console, height=100, minsize=60, stretch='never')
 
-    # --- Sidebar ---
-    def _build_sidebar(self, parent):
-        sb = tk.Frame(parent, bg=CARD_THEME['panel'])
+    # --- Top Metrics Bar ---
+    def _build_top_bar(self, parent):
+        bar = tk.Frame(parent, bg=THEME['bg_mid'], height=80)
+        bar.pack(fill='x', padx=0, pady=0)
+        bar.pack_propagate(False)
 
-        # Connection
-        conn_frame = tk.LabelFrame(sb, text='Connection', bg=CARD_THEME['panel'],
-                                    fg=CARD_THEME['title'], font=('Segoe UI', 10, 'bold'))
-        conn_frame.pack(fill='x', padx=6, pady=4)
+        inner = tk.Frame(bar, bg=THEME['bg_mid'])
+        inner.pack(fill='both', expand=True, padx=8, pady=6)
 
-        mode_frame = tk.Frame(conn_frame, bg=CARD_THEME['panel'])
-        mode_frame.pack(fill='x', padx=4, pady=2)
-        tk.Radiobutton(mode_frame, text='Server', variable=self.mode_var, value='server',
-                        bg=CARD_THEME['panel'], fg=CARD_THEME['value'], selectcolor=CARD_THEME['bg'],
-                        command=self.on_mode_change).pack(side='left')
-        tk.Radiobutton(mode_frame, text='Client', variable=self.mode_var, value='client',
-                        bg=CARD_THEME['panel'], fg=CARD_THEME['value'], selectcolor=CARD_THEME['bg'],
-                        command=self.on_mode_change).pack(side='left')
+        primary = getattr(cfg, 'PRIMARY_METRICS', [])
+        for i, (key, label) in enumerate(primary):
+            self._build_metric_card(inner, key, label, i)
+            inner.columnconfigure(i, weight=1)
 
-        for label, var in [('Host:', self.host_var), ('Port:', self.port_var)]:
-            row = tk.Frame(conn_frame, bg=CARD_THEME['panel'])
-            row.pack(fill='x', padx=4, pady=1)
-            tk.Label(row, text=label, bg=CARD_THEME['panel'], fg=CARD_THEME['title'],
-                     width=5, anchor='e').pack(side='left')
-            tk.Entry(row, textvariable=var, bg=CARD_THEME['bg'], fg=CARD_THEME['value'],
-                     insertbackground=CARD_THEME['value'], width=14).pack(side='left', padx=2)
+    # --- Metric Card with Sparkline ---
+    def _build_metric_card(self, parent, key, label, index):
+        card = tk.Frame(parent, bg=THEME['bg_surface'], highlightbackground='#1e1e38',
+                         highlightthickness=1, padx=8, pady=4)
+        card.grid(row=0, column=index, padx=4, pady=2, sticky='nsew')
 
-        btn_frame = tk.Frame(conn_frame, bg=CARD_THEME['panel'])
-        btn_frame.pack(fill='x', padx=4, pady=4)
-        self.start_btn = tk.Button(btn_frame, text='Start', command=self.start,
-                                    bg=CARD_THEME['ok'], fg='white', width=8)
-        self.start_btn.pack(side='left', padx=2)
-        self.stop_btn = tk.Button(btn_frame, text='Stop', command=self.stop,
-                                   bg=CARD_THEME['danger'], fg='white', width=8, state='disabled')
-        self.stop_btn.pack(side='left', padx=2)
+        # Accent line at top
+        accent = tk.Frame(card, bg=THEME['accent_light'], height=2)
+        accent.pack(fill='x')
 
-        self.conn_summary = tk.Label(conn_frame, text='Stopped', bg=CARD_THEME['panel'],
-                                      fg=CARD_THEME['muted'], font=('Segoe UI', 9))
-        self.conn_summary.pack(fill='x', padx=4)
+        # Top row: label + trend arrow
+        top_row = tk.Frame(card, bg=THEME['bg_surface'])
+        top_row.pack(fill='x')
+        tk.Label(top_row, text=label, bg=THEME['bg_surface'], fg=THEME['text_muted'],
+                 font=('Segoe UI', 9)).pack(side='left')
 
-        # Connection list
-        self.conn_listbox = tk.Listbox(sb, bg=CARD_THEME['bg'], fg=CARD_THEME['value'],
-                                        height=3, font=('Consolas', 9))
-        self.conn_listbox.pack(fill='x', padx=6, pady=4)
+        trend_label = tk.Label(top_row, text='', bg=THEME['bg_surface'],
+                               fg=THEME['text_muted'], font=('Segoe UI', 9))
+        trend_label.pack(side='right')
+        if not hasattr(self, '_trend_labels'):
+            self._trend_labels = {}
+        self._trend_labels[key] = trend_label
 
-        # Quick commands
-        qc_list = getattr(cfg, 'QUICK_COMMANDS', [])
-        if qc_list:
-            qc_frame = tk.LabelFrame(sb, text='Quick Commands', bg=CARD_THEME['panel'],
-                                      fg=CARD_THEME['title'], font=('Segoe UI', 10, 'bold'))
-            qc_frame.pack(fill='x', padx=6, pady=4)
-            for qc in qc_list:
-                cmd = qc['command']
-                tk.Button(qc_frame, text=qc['label'],
-                          command=lambda c=cmd: self.send_quick(c),
-                          bg=CARD_THEME['border'], fg=CARD_THEME['value']).pack(fill='x', padx=4, pady=1)
+        # Value
+        tk.Label(card, textvariable=self.metric_vars.get(key, tk.StringVar(value='--')),
+                 bg=THEME['bg_surface'], fg=THEME['text'],
+                 font=('Consolas', 16, 'bold')).pack(anchor='w')
 
-        # Simulation
-        if hasattr(cfg, 'build_simulated_packet') and cfg.build_simulated_packet is not None:
-            sim_frame = tk.LabelFrame(sb, text='Simulation', bg=CARD_THEME['panel'],
-                                       fg=CARD_THEME['title'], font=('Segoe UI', 10, 'bold'))
-            sim_frame.pack(fill='x', padx=6, pady=4)
-            tk.Button(sim_frame, text='Start Sim', command=self.start_simulation,
-                      bg=CARD_THEME['accent'], fg='white').pack(fill='x', padx=4, pady=1)
-            tk.Button(sim_frame, text='Stop Sim', command=self.stop_simulation,
-                      bg=CARD_THEME['border'], fg=CARD_THEME['value']).pack(fill='x', padx=4, pady=1)
+        # Sparkline canvas
+        spark_canvas = tk.Canvas(card, bg=THEME['bg_surface'], highlightthickness=0,
+                                  width=80, height=18)
+        spark_canvas.pack(fill='x', pady=(2, 0))
+        self._sparkline_canvases[key] = spark_canvas
 
-        # Send box
-        send_frame = tk.LabelFrame(sb, text='Send', bg=CARD_THEME['panel'],
-                                    fg=CARD_THEME['title'], font=('Segoe UI', 10, 'bold'))
-        send_frame.pack(fill='x', padx=6, pady=4, side='bottom')
-        self.send_entry = tk.Entry(send_frame, bg=CARD_THEME['bg'], fg=CARD_THEME['value'],
-                                    insertbackground=CARD_THEME['value'])
-        self.send_entry.pack(fill='x', padx=4, pady=2)
-        self.send_entry.bind('<Return>', lambda e: self.send_data())
-        tk.Checkbutton(send_frame, text='Append CRLF', variable=self.crlf_var,
-                        bg=CARD_THEME['panel'], fg=CARD_THEME['title'],
-                        selectcolor=CARD_THEME['bg']).pack(padx=4, anchor='w')
-        tk.Button(send_frame, text='Send', command=self.send_data,
-                  bg=CARD_THEME['accent'], fg='white').pack(fill='x', padx=4, pady=2)
+    # --- Chart Area (left column) ---
+    def _build_chart_area(self, parent):
+        center = tk.Frame(parent, bg=THEME['bg_deep'])
 
-        return sb
-
-    # --- Center: Plot ---
-    def _build_center(self, parent):
-        center = tk.Frame(parent, bg=CARD_THEME['bg'])
-
-        # Chart
-        chart_frame = tk.Frame(center, bg=CARD_THEME['panel'])
+        # Chart frame
+        chart_frame = tk.Frame(center, bg=THEME['bg_mid'])
         chart_frame.pack(fill='both', expand=True, padx=4, pady=4)
 
+        # Chart canvas
         self.chart_canvas = tk.Canvas(chart_frame, bg='#0f172a', highlightthickness=0)
         self.chart_canvas.pack(fill='both', expand=True)
 
-        # Chart controls
-        ctrl = tk.Frame(chart_frame, bg=CARD_THEME['panel'])
+        # Bind mouse events for zoom/pan/hover
+        self.chart_canvas.bind('<MouseWheel>', self._on_chart_scroll)
+        self.chart_canvas.bind('<ButtonPress-1>', self._on_chart_press)
+        self.chart_canvas.bind('<B1-Motion>', self._on_chart_drag)
+        self.chart_canvas.bind('<ButtonRelease-1>', self._on_chart_release)
+        self.chart_canvas.bind('<Double-Button-1>', lambda e: self._chart_zoom_reset())
+        self.chart_canvas.bind('<Motion>', self._on_chart_hover)
+        self.chart_canvas.bind('<Leave>', self._on_chart_leave)
+
+        # Minimap canvas (below chart)
+        self.minimap_canvas = tk.Canvas(chart_frame, bg='#0b0f1a', highlightthickness=0,
+                                         height=40)
+        self.minimap_canvas.pack(fill='x', padx=0, pady=(0, 0))
+        self.minimap_canvas.bind('<ButtonPress-1>', self._on_minimap_press)
+        self.minimap_canvas.bind('<B1-Motion>', self._on_minimap_drag)
+
+        # Chart controls row
+        ctrl = tk.Frame(chart_frame, bg=THEME['bg_mid'])
         ctrl.pack(fill='x', padx=4, pady=2)
 
         for key, color, _ in getattr(cfg, 'PLOT_KEYS', []):
             cb = tk.Checkbutton(ctrl, text=key, variable=self.plot_enabled_vars[key],
-                                 bg=CARD_THEME['panel'], fg=color, selectcolor=CARD_THEME['bg'],
+                                 bg=THEME['bg_mid'], fg=color, selectcolor=THEME['bg_deep'],
                                  font=('Consolas', 9), command=self.draw_chart)
             cb.pack(side='left', padx=2)
 
         tk.Checkbutton(ctrl, text='Smooth', variable=self.plot_smooth_var,
-                        bg=CARD_THEME['panel'], fg=CARD_THEME['title'], selectcolor=CARD_THEME['bg'],
+                        bg=THEME['bg_mid'], fg=THEME['text_muted'], selectcolor=THEME['bg_deep'],
                         command=self.draw_chart).pack(side='right', padx=2)
         tk.Checkbutton(ctrl, text='Fill', variable=self.plot_fill_var,
-                        bg=CARD_THEME['panel'], fg=CARD_THEME['title'], selectcolor=CARD_THEME['bg'],
+                        bg=THEME['bg_mid'], fg=THEME['text_muted'], selectcolor=THEME['bg_deep'],
                         command=self.draw_chart).pack(side='right', padx=2)
 
+        # Zoom buttons
+        zoom_frame = tk.Frame(ctrl, bg=THEME['bg_mid'])
+        zoom_frame.pack(side='right', padx=6)
+        ttkb.Button(zoom_frame, text='+', width=2, bootstyle='secondary-outline',
+                     command=self._chart_zoom_in).pack(side='left', padx=1)
+        ttkb.Button(zoom_frame, text='-', width=2, bootstyle='secondary-outline',
+                     command=self._chart_zoom_out).pack(side='left', padx=1)
+        ttkb.Button(zoom_frame, text='Reset', width=5, bootstyle='secondary-outline',
+                     command=self._chart_zoom_reset).pack(side='left', padx=1)
+
         # Scale controls
-        scale_frame = tk.Frame(chart_frame, bg=CARD_THEME['panel'])
+        scale_frame = tk.Frame(chart_frame, bg=THEME['bg_mid'])
         scale_frame.pack(fill='x', padx=4, pady=1)
-        tk.Label(scale_frame, text='Scale:', bg=CARD_THEME['panel'], fg=CARD_THEME['title']).pack(side='left')
-        ttk.Combobox(scale_frame, textvariable=self.plot_scale_mode, values=['auto', 'fixed'],
+        tk.Label(scale_frame, text='Scale:', bg=THEME['bg_mid'], fg=THEME['text_muted']).pack(side='left')
+        ttkb.Combobox(scale_frame, textvariable=self.plot_scale_mode, values=['auto', 'fixed'],
                      width=6, state='readonly').pack(side='left', padx=2)
-        tk.Label(scale_frame, text='Min:', bg=CARD_THEME['panel'], fg=CARD_THEME['title']).pack(side='left')
-        tk.Entry(scale_frame, textvariable=self.plot_fixed_min, width=6, bg=CARD_THEME['bg'],
-                 fg=CARD_THEME['value'], insertbackground=CARD_THEME['value']).pack(side='left', padx=2)
-        tk.Label(scale_frame, text='Max:', bg=CARD_THEME['panel'], fg=CARD_THEME['title']).pack(side='left')
-        tk.Entry(scale_frame, textvariable=self.plot_fixed_max, width=6, bg=CARD_THEME['bg'],
-                 fg=CARD_THEME['value'], insertbackground=CARD_THEME['value']).pack(side='left', padx=2)
+        tk.Label(scale_frame, text='Min:', bg=THEME['bg_mid'], fg=THEME['text_muted']).pack(side='left')
+        ttkb.Entry(scale_frame, textvariable=self.plot_fixed_min, width=6).pack(side='left', padx=2)
+        tk.Label(scale_frame, text='Max:', bg=THEME['bg_mid'], fg=THEME['text_muted']).pack(side='left')
+        ttkb.Entry(scale_frame, textvariable=self.plot_fixed_max, width=6).pack(side='left', padx=2)
 
         # Summary
-        tk.Label(chart_frame, textvariable=self.chart_summary_var, bg=CARD_THEME['panel'],
-                 fg=CARD_THEME['muted'], font=('Consolas', 9), anchor='w').pack(fill='x', padx=4)
+        tk.Label(chart_frame, textvariable=self.chart_summary_var, bg=THEME['bg_mid'],
+                 fg=THEME['text_muted'], font=('Consolas', 9), anchor='w').pack(fill='x', padx=4)
 
         return center
 
-    # --- Right Panel: Metric tabs + custom tabs ---
+    # --- Right Panel: connection + status + notebook + commands + send ---
     def _build_right_panel(self, parent):
-        right = tk.Frame(parent, bg=CARD_THEME['bg'])
+        right = tk.Frame(parent, bg=THEME['bg_deep'])
+
+        # Connection header (collapsible)
+        self._build_connection_header(right)
 
         # Status banner
-        banner = tk.Frame(right, bg=CARD_THEME['panel'])
+        banner = tk.Frame(right, bg=THEME['bg_mid'])
         banner.pack(fill='x', padx=4, pady=2)
-        tk.Label(banner, textvariable=self.metric_vars['fix_state'], bg=CARD_THEME['panel'],
-                 fg=CARD_THEME['accent'], font=('Segoe UI', 10, 'bold')).pack(side='left', padx=4)
-        tk.Label(banner, textvariable=self.metric_vars['health_state'], bg=CARD_THEME['panel'],
-                 fg=CARD_THEME['ok'], font=('Segoe UI', 10)).pack(side='right', padx=4)
+        tk.Label(banner, textvariable=self.metric_vars['fix_state'], bg=THEME['bg_mid'],
+                 fg=THEME['accent_light'], font=('Segoe UI', 10, 'bold')).pack(side='left', padx=4)
+        tk.Label(banner, textvariable=self.metric_vars['health_state'], bg=THEME['bg_mid'],
+                 fg=THEME['ok'], font=('Segoe UI', 10)).pack(side='right', padx=4)
 
-        # Notebook
+        # Notebook with tabs
         nb = ttk.Notebook(right)
         nb.pack(fill='both', expand=True, padx=4, pady=4)
 
@@ -413,38 +416,164 @@ class TuningToolApp:
         for tab_def in getattr(cfg, 'COMMAND_TABS', []):
             self._build_command_tab(nb, tab_def)
 
+        # Pinned quick commands + send at the bottom
+        bottom_frame = tk.Frame(right, bg=THEME['bg_deep'])
+        bottom_frame.pack(fill='x', side='bottom', padx=4, pady=4)
+
+        # Quick commands
+        qc_list = getattr(cfg, 'QUICK_COMMANDS', [])
+        if qc_list:
+            qc_frame = tk.Frame(bottom_frame, bg=THEME['bg_mid'])
+            qc_frame.pack(fill='x', pady=(0, 4))
+            qc_inner = tk.Frame(qc_frame, bg=THEME['bg_mid'])
+            qc_inner.pack(fill='x', padx=4, pady=4)
+            for qc in qc_list:
+                cmd = qc['command']
+                ttkb.Button(qc_inner, text=qc['label'],
+                            command=lambda c=cmd: self.send_quick(c),
+                            bootstyle='secondary-outline').pack(side='left', padx=2)
+
+        # Simulation buttons
+        if hasattr(cfg, 'build_simulated_packet') and cfg.build_simulated_packet is not None:
+            sim_frame = tk.Frame(bottom_frame, bg=THEME['bg_mid'])
+            sim_frame.pack(fill='x', pady=(0, 4))
+            sim_inner = tk.Frame(sim_frame, bg=THEME['bg_mid'])
+            sim_inner.pack(fill='x', padx=4, pady=4)
+            ttkb.Button(sim_inner, text='Start Sim', command=self.start_simulation,
+                        bootstyle='info-outline').pack(side='left', padx=2)
+            ttkb.Button(sim_inner, text='Stop Sim', command=self.stop_simulation,
+                        bootstyle='secondary-outline').pack(side='left', padx=2)
+
+        # Send box
+        send_frame = tk.Frame(bottom_frame, bg=THEME['bg_mid'])
+        send_frame.pack(fill='x')
+        send_inner = tk.Frame(send_frame, bg=THEME['bg_mid'])
+        send_inner.pack(fill='x', padx=4, pady=4)
+
+        self.send_entry = ttkb.Entry(send_inner)
+        self.send_entry.pack(fill='x', side='left', expand=True, padx=(0, 4))
+        self.send_entry.bind('<Return>', lambda e: self.send_data())
+
+        ttkb.Button(send_inner, text='Send', command=self.send_data,
+                    bootstyle='info', width=6).pack(side='right')
+
+        crlf_row = tk.Frame(send_frame, bg=THEME['bg_mid'])
+        crlf_row.pack(fill='x', padx=4, pady=(0, 2))
+        tk.Checkbutton(crlf_row, text='Append CRLF', variable=self.crlf_var,
+                        bg=THEME['bg_mid'], fg=THEME['text_muted'],
+                        selectcolor=THEME['bg_deep']).pack(anchor='w')
+
         return right
 
+    # --- Connection Header (collapsible) ---
+    def _build_connection_header(self, parent):
+        header = tk.Frame(parent, bg=THEME['bg_mid'])
+        header.pack(fill='x', padx=4, pady=(4, 2))
+
+        # Top bar: always visible - click to toggle
+        top_bar = tk.Frame(header, bg=THEME['bg_mid'], cursor='hand2')
+        top_bar.pack(fill='x')
+        top_bar.bind('<Button-1>', lambda e: self._toggle_connection_panel())
+
+        # Connection status dot
+        self.conn_dot = tk.Canvas(top_bar, width=12, height=12, bg=THEME['bg_mid'],
+                                   highlightthickness=0)
+        self.conn_dot.pack(side='left', padx=(6, 4), pady=4)
+        self.conn_dot.create_oval(2, 2, 10, 10, fill=THEME['text_dim'], outline='', tags='dot')
+        self.conn_dot.bind('<Button-1>', lambda e: self._toggle_connection_panel())
+
+        self.conn_badge = tk.Label(top_bar, text='Stopped', bg=THEME['bg_mid'],
+                                    fg=THEME['text_muted'], font=('Segoe UI', 10, 'bold'))
+        self.conn_badge.pack(side='left', padx=2)
+        self.conn_badge.bind('<Button-1>', lambda e: self._toggle_connection_panel())
+
+        self._conn_toggle_arrow = tk.Label(top_bar, text='\u25B6', bg=THEME['bg_mid'],
+                                            fg=THEME['text_dim'], font=('Segoe UI', 8))
+        self._conn_toggle_arrow.pack(side='right', padx=6)
+        self._conn_toggle_arrow.bind('<Button-1>', lambda e: self._toggle_connection_panel())
+
+        # Collapsible detail panel
+        self._conn_detail = tk.Frame(header, bg=THEME['bg_mid'])
+        # Initially collapsed - don't pack
+
+        mode_frame = tk.Frame(self._conn_detail, bg=THEME['bg_mid'])
+        mode_frame.pack(fill='x', padx=4, pady=2)
+        ttkb.Radiobutton(mode_frame, text='Server', variable=self.mode_var, value='server',
+                          command=self.on_mode_change, bootstyle='info-toolbutton').pack(side='left', padx=2)
+        ttkb.Radiobutton(mode_frame, text='Client', variable=self.mode_var, value='client',
+                          command=self.on_mode_change, bootstyle='info-toolbutton').pack(side='left', padx=2)
+
+        for label, var in [('Host:', self.host_var), ('Port:', self.port_var)]:
+            row = tk.Frame(self._conn_detail, bg=THEME['bg_mid'])
+            row.pack(fill='x', padx=4, pady=1)
+            tk.Label(row, text=label, bg=THEME['bg_mid'], fg=THEME['text_muted'],
+                     width=5, anchor='e', font=('Segoe UI', 9)).pack(side='left')
+            ttkb.Entry(row, textvariable=var, width=14).pack(side='left', padx=2)
+
+        btn_frame = tk.Frame(self._conn_detail, bg=THEME['bg_mid'])
+        btn_frame.pack(fill='x', padx=4, pady=4)
+        self.start_btn = ttkb.Button(btn_frame, text='Start', command=self.start,
+                                      bootstyle='success', width=8)
+        self.start_btn.pack(side='left', padx=2)
+        self.stop_btn = ttkb.Button(btn_frame, text='Stop', command=self.stop,
+                                     bootstyle='danger', width=8, state='disabled')
+        self.stop_btn.pack(side='left', padx=2)
+
+        # Connection list
+        self.conn_listbox = tk.Listbox(self._conn_detail, bg=THEME['bg_deep'], fg=THEME['text'],
+                                        height=3, font=('Consolas', 9),
+                                        selectbackground=THEME['accent'],
+                                        highlightthickness=0, borderwidth=0)
+        self.conn_listbox.pack(fill='x', padx=4, pady=4)
+
+        # Also keep a legacy conn_summary label for refresh_connection_summary
+        self.conn_summary = tk.Label(self._conn_detail, text='Stopped', bg=THEME['bg_mid'],
+                                      fg=THEME['text_muted'], font=('Segoe UI', 9))
+        self.conn_summary.pack(fill='x', padx=4)
+
+    def _toggle_connection_panel(self):
+        if self._conn_panel_expanded:
+            self._conn_detail.pack_forget()
+            self._conn_toggle_arrow.config(text='\u25B6')
+            self._conn_panel_expanded = False
+        else:
+            self._conn_detail.pack(fill='x')
+            self._conn_toggle_arrow.config(text='\u25BC')
+            self._conn_panel_expanded = True
+
+    # --- Telemetry Tab ---
     def _build_tab_telemetry(self, notebook):
-        tab = tk.Frame(notebook, bg=CARD_THEME['panel'])
+        tab = tk.Frame(notebook, bg=THEME['bg_mid'])
         notebook.add(tab, text='Telemetry')
 
-        # Primary metric cards
-        cards_frame = tk.Frame(tab, bg=CARD_THEME['panel'])
-        cards_frame.pack(fill='x', padx=4, pady=4)
-        for i, (key, label) in enumerate(getattr(cfg, 'PRIMARY_METRICS', [])):
-            self._build_metric_card(cards_frame, key, label, i)
-
         # Detail metrics
-        det_frame = tk.LabelFrame(tab, text='Details', bg=CARD_THEME['panel'],
-                                   fg=CARD_THEME['title'], font=('Segoe UI', 9, 'bold'))
-        det_frame.pack(fill='x', padx=4, pady=2)
+        det_frame = tk.Frame(tab, bg=THEME['bg_mid'])
+        det_frame.pack(fill='x', padx=4, pady=4)
+        tk.Label(det_frame, text='Details', bg=THEME['bg_mid'], fg=THEME['text_muted'],
+                 font=('Segoe UI', 9, 'bold')).pack(anchor='w', padx=2, pady=(0, 2))
+
+        det_grid = tk.Frame(det_frame, bg=THEME['bg_surface'])
+        det_grid.pack(fill='x')
         for i, (key, label) in enumerate(getattr(cfg, 'DETAIL_METRICS', [])):
             r, c = divmod(i, 2)
-            tk.Label(det_frame, text=label, bg=CARD_THEME['panel'], fg=CARD_THEME['title'],
-                     font=('Consolas', 9), width=10, anchor='e').grid(row=r, column=c*2, padx=2, pady=1)
-            tk.Label(det_frame, textvariable=self.metric_vars.get(key, tk.StringVar(value='--')),
-                     bg=CARD_THEME['panel'], fg=CARD_THEME['value'],
-                     font=('Consolas', 10), anchor='w').grid(row=r, column=c*2+1, padx=2, pady=1, sticky='w')
+            tk.Label(det_grid, text=label, bg=THEME['bg_surface'], fg=THEME['text_muted'],
+                     font=('Consolas', 9), width=10, anchor='e').grid(row=r, column=c*2, padx=4, pady=2)
+            tk.Label(det_grid, textvariable=self.metric_vars.get(key, tk.StringVar(value='--')),
+                     bg=THEME['bg_surface'], fg=THEME['text'],
+                     font=('Consolas', 10), anchor='w').grid(row=r, column=c*2+1, padx=4, pady=2, sticky='w')
 
         # Extended metrics (scrollable)
-        ext_frame = tk.LabelFrame(tab, text='Extended', bg=CARD_THEME['panel'],
-                                   fg=CARD_THEME['title'], font=('Segoe UI', 9, 'bold'))
-        ext_frame.pack(fill='both', expand=True, padx=4, pady=2)
+        ext_outer = tk.Frame(tab, bg=THEME['bg_mid'])
+        ext_outer.pack(fill='both', expand=True, padx=4, pady=4)
+        tk.Label(ext_outer, text='Extended', bg=THEME['bg_mid'], fg=THEME['text_muted'],
+                 font=('Segoe UI', 9, 'bold')).pack(anchor='w', padx=2, pady=(0, 2))
 
-        canvas = tk.Canvas(ext_frame, bg=CARD_THEME['panel'], highlightthickness=0)
-        scrollbar = tk.Scrollbar(ext_frame, orient='vertical', command=canvas.yview)
-        inner = tk.Frame(canvas, bg=CARD_THEME['panel'])
+        ext_frame = tk.Frame(ext_outer, bg=THEME['bg_surface'])
+        ext_frame.pack(fill='both', expand=True)
+
+        canvas = tk.Canvas(ext_frame, bg=THEME['bg_surface'], highlightthickness=0)
+        scrollbar = ttkb.Scrollbar(ext_frame, orient='vertical', command=canvas.yview)
+        inner = tk.Frame(canvas, bg=THEME['bg_surface'])
         inner.bind('<Configure>', lambda e: canvas.configure(scrollregion=canvas.bbox('all')))
         canvas.create_window((0, 0), window=inner, anchor='nw')
         canvas.configure(yscrollcommand=scrollbar.set)
@@ -454,94 +583,322 @@ class TuningToolApp:
 
         for i, (key, label) in enumerate(getattr(cfg, 'EXTENDED_METRICS', [])):
             r, c = divmod(i, 2)
-            tk.Label(inner, text=label, bg=CARD_THEME['panel'], fg=CARD_THEME['title'],
-                     font=('Consolas', 9), width=10, anchor='e').grid(row=r, column=c*2, padx=2, pady=1)
+            tk.Label(inner, text=label, bg=THEME['bg_surface'], fg=THEME['text_muted'],
+                     font=('Consolas', 9), width=10, anchor='e').grid(row=r, column=c*2, padx=4, pady=2)
             tk.Label(inner, textvariable=self.metric_vars.get(key, tk.StringVar(value='--')),
-                     bg=CARD_THEME['panel'], fg=CARD_THEME['value'],
-                     font=('Consolas', 10), anchor='w').grid(row=r, column=c*2+1, padx=2, pady=1, sticky='w')
+                     bg=THEME['bg_surface'], fg=THEME['text'],
+                     font=('Consolas', 10), anchor='w').grid(row=r, column=c*2+1, padx=4, pady=2, sticky='w')
 
+    # --- Custom Status Tab ---
     def _build_custom_status_tab(self, notebook, tab_def):
         name = tab_def.get('name', 'Custom')
         fields = tab_def.get('fields', [])
         result_keys = tab_def.get('result_keys', [])
 
-        tab = tk.Frame(notebook, bg=CARD_THEME['panel'])
+        tab = tk.Frame(notebook, bg=THEME['bg_mid'])
         notebook.add(tab, text=name)
 
         for i, (key, label) in enumerate(fields):
             r, c = divmod(i, 2)
-            tk.Label(tab, text=label, bg=CARD_THEME['panel'], fg=CARD_THEME['title'],
-                     font=('Consolas', 9), width=12, anchor='e').grid(row=r, column=c*2, padx=2, pady=1)
+            tk.Label(tab, text=label, bg=THEME['bg_mid'], fg=THEME['text_muted'],
+                     font=('Consolas', 9), width=12, anchor='e').grid(row=r, column=c*2, padx=4, pady=2)
             tk.Label(tab, textvariable=self.metric_vars.get(key, tk.StringVar(value='--')),
-                     bg=CARD_THEME['panel'], fg=CARD_THEME['value'],
-                     font=('Consolas', 10), anchor='w').grid(row=r, column=c*2+1, padx=2, pady=1, sticky='w')
+                     bg=THEME['bg_mid'], fg=THEME['text'],
+                     font=('Consolas', 10), anchor='w').grid(row=r, column=c*2+1, padx=4, pady=2, sticky='w')
 
         if result_keys:
-            res_frame = tk.LabelFrame(tab, text='Last Results', bg=CARD_THEME['panel'],
-                                       fg=CARD_THEME['title'], font=('Segoe UI', 9, 'bold'))
+            res_frame = tk.Frame(tab, bg=THEME['bg_surface'])
             base_row = (len(fields) + 1) // 2 + 1
             res_frame.grid(row=base_row, column=0, columnspan=4, sticky='ew', padx=4, pady=4)
+            tk.Label(res_frame, text='Last Results', bg=THEME['bg_surface'],
+                     fg=THEME['text_muted'], font=('Segoe UI', 9, 'bold')).pack(anchor='w', padx=4, pady=2)
             for i, (tag, var_key) in enumerate(result_keys):
-                tk.Label(res_frame, text=f'{tag}:', bg=CARD_THEME['panel'], fg=CARD_THEME['title'],
-                         font=('Consolas', 9)).grid(row=i, column=0, padx=2, sticky='e')
-                tk.Label(res_frame, textvariable=self.metric_vars.get(var_key, tk.StringVar(value='--')),
-                         bg=CARD_THEME['panel'], fg=CARD_THEME['value'],
-                         font=('Consolas', 9), wraplength=250, anchor='w').grid(row=i, column=1, padx=2, sticky='w')
+                row = tk.Frame(res_frame, bg=THEME['bg_surface'])
+                row.pack(fill='x', padx=4, pady=1)
+                tk.Label(row, text=f'{tag}:', bg=THEME['bg_surface'], fg=THEME['text_muted'],
+                         font=('Consolas', 9)).pack(side='left')
+                tk.Label(row, textvariable=self.metric_vars.get(var_key, tk.StringVar(value='--')),
+                         bg=THEME['bg_surface'], fg=THEME['text'],
+                         font=('Consolas', 9), wraplength=250, anchor='w').pack(side='left', padx=4)
 
+    # --- Command Tab ---
     def _build_command_tab(self, notebook, tab_def):
         name = tab_def.get('name', 'Commands')
         buttons = tab_def.get('buttons', [])
         params = tab_def.get('params', [])
 
-        tab = tk.Frame(notebook, bg=CARD_THEME['panel'])
+        tab = tk.Frame(notebook, bg=THEME['bg_mid'])
         notebook.add(tab, text=name)
 
         for btn in buttons:
             cmd = btn['command']
-            tk.Button(tab, text=btn['label'],
-                      command=lambda c=cmd: self._send_custom_cmd(c),
-                      bg=CARD_THEME['border'], fg=CARD_THEME['value'],
-                      font=('Segoe UI', 10)).pack(fill='x', padx=8, pady=2)
+            ttkb.Button(tab, text=btn['label'],
+                        command=lambda c=cmd: self._send_custom_cmd(c),
+                        bootstyle='secondary-outline').pack(fill='x', padx=8, pady=2)
 
         for p in params:
-            pf = tk.Frame(tab, bg=CARD_THEME['panel'])
+            pf = tk.Frame(tab, bg=THEME['bg_mid'])
             pf.pack(fill='x', padx=8, pady=2)
-            tk.Label(pf, text=p['label'], bg=CARD_THEME['panel'], fg=CARD_THEME['title'],
+            tk.Label(pf, text=p['label'], bg=THEME['bg_mid'], fg=THEME['text_muted'],
                      font=('Consolas', 9), width=16, anchor='e').pack(side='left')
             var = tk.StringVar(value=p.get('default', ''))
             self._cmd_param_vars[p['prefix']] = var
-            entry = tk.Entry(pf, textvariable=var, bg=CARD_THEME['bg'], fg=CARD_THEME['value'],
-                             insertbackground=CARD_THEME['value'], width=12)
+            entry = ttkb.Entry(pf, textvariable=var, width=12)
             entry.pack(side='left', padx=4)
             prefix = p['prefix']
-            tk.Button(pf, text='Set',
-                      command=lambda pr=prefix, v=var: self._send_custom_cmd(f'{pr} {v.get()}'),
-                      bg=CARD_THEME['accent'], fg='white', width=4).pack(side='left')
-
-    def _build_metric_card(self, parent, key, label, index):
-        card = tk.Frame(parent, bg=CARD_THEME['bg'], highlightbackground=CARD_THEME['border'],
-                         highlightthickness=1, padx=6, pady=4)
-        card.grid(row=0, column=index, padx=3, pady=3, sticky='nsew')
-        parent.columnconfigure(index, weight=1)
-
-        accent = tk.Frame(card, bg=CARD_THEME['accent'], height=3)
-        accent.pack(fill='x')
-        tk.Label(card, text=label, bg=CARD_THEME['bg'], fg=CARD_THEME['title'],
-                 font=('Segoe UI', 9)).pack(anchor='w')
-        tk.Label(card, textvariable=self.metric_vars.get(key, tk.StringVar(value='--')),
-                 bg=CARD_THEME['bg'], fg=CARD_THEME['value'],
-                 font=('Consolas', 16, 'bold')).pack(anchor='w')
+            ttkb.Button(pf, text='Set',
+                        command=lambda pr=prefix, v=var: self._send_custom_cmd(f'{pr} {v.get()}'),
+                        bootstyle='info', width=4).pack(side='left')
 
     # --- Console ---
     def _build_console(self, parent):
-        frame = tk.Frame(parent, bg=CARD_THEME['bg'])
-        self.log_text = tk.Text(frame, bg='#0a0a0a', fg='#d1d5db', height=5,
-                                 font=('Consolas', 9), state='disabled', wrap='none')
-        scrollbar = tk.Scrollbar(frame, command=self.log_text.yview)
+        frame = tk.Frame(parent, bg=THEME['bg_deep'])
+        self.log_text = tk.Text(frame, bg=THEME['console_bg'], fg=THEME['console_fg'], height=5,
+                                 font=('Consolas', 9), state='disabled', wrap='none',
+                                 highlightthickness=0, borderwidth=0)
+        scrollbar = ttkb.Scrollbar(frame, command=self.log_text.yview)
         self.log_text.config(yscrollcommand=scrollbar.set)
         scrollbar.pack(side='right', fill='y')
         self.log_text.pack(fill='both', expand=True)
         return frame
+
+    # ======================================================================
+    # Sparkline Updates
+    # ======================================================================
+    def _update_sparklines(self, parsed):
+        for key, _ in getattr(cfg, 'PRIMARY_METRICS', []):
+            val = parsed.get(key)
+            if val is not None and isinstance(val, (int, float)):
+                hist = self.sparkline_data.setdefault(key, [])
+                hist.append(float(val))
+                if len(hist) > self.sparkline_max:
+                    del hist[:-self.sparkline_max]
+
+                # Update trend arrow
+                if key in getattr(self, '_trend_labels', {}):
+                    if len(hist) >= 2:
+                        diff = hist[-1] - hist[-2]
+                        if diff > 0.01:
+                            self._trend_labels[key].config(text='\u25B2', fg=THEME['ok'])
+                        elif diff < -0.01:
+                            self._trend_labels[key].config(text='\u25BC', fg=THEME['danger'])
+                        else:
+                            self._trend_labels[key].config(text='\u25C6', fg=THEME['text_dim'])
+
+                # Draw sparkline
+                if key in self._sparkline_canvases:
+                    self._draw_sparkline(key)
+
+    def _draw_sparkline(self, key):
+        canvas = self._sparkline_canvases[key]
+        canvas.delete('all')
+        data = self.sparkline_data.get(key, [])
+        if len(data) < 2:
+            return
+
+        canvas.update_idletasks()
+        w = max(canvas.winfo_width(), 60)
+        h = max(canvas.winfo_height(), 14)
+        padding = 2
+
+        mn = min(data)
+        mx = max(data)
+        span = mx - mn
+        if span == 0:
+            span = 1
+
+        points = []
+        for i, v in enumerate(data):
+            x = padding + (w - 2 * padding) * i / max(len(data) - 1, 1)
+            y = padding + (h - 2 * padding) * (1 - (v - mn) / span)
+            points.extend((x, y))
+
+        if len(points) >= 4:
+            canvas.create_line(*points, fill=THEME['accent_light'], width=1, smooth=True)
+
+    # ======================================================================
+    # Chart Zoom / Pan
+    # ======================================================================
+    def _chart_zoom_in(self):
+        self._apply_zoom(0.5, 0.5)
+
+    def _chart_zoom_out(self):
+        self._apply_zoom(2.0, 0.5)
+
+    def _chart_zoom_reset(self):
+        self.zoom_view_start = 0
+        self.zoom_view_count = 0
+        self.zoom_auto_follow = True
+        self.draw_chart()
+
+    def _apply_zoom(self, factor, center_frac):
+        # Find longest visible series
+        max_len = 0
+        for key, _, _ in getattr(cfg, 'PLOT_KEYS', []):
+            if self.plot_enabled_vars.get(key, tk.BooleanVar(value=False)).get():
+                max_len = max(max_len, len(self.plot_series.get(key, [])))
+        if max_len < 2:
+            return
+
+        old_count = self.zoom_view_count if self.zoom_view_count > 0 else max_len
+        new_count = int(old_count * factor)
+        new_count = max(10, min(new_count, max_len))
+
+        if new_count >= max_len:
+            self.zoom_view_start = 0
+            self.zoom_view_count = 0
+            self.zoom_auto_follow = True
+        else:
+            center_idx = self.zoom_view_start + int(old_count * center_frac)
+            new_start = center_idx - int(new_count * center_frac)
+            new_start = max(0, min(new_start, max_len - new_count))
+            self.zoom_view_start = new_start
+            self.zoom_view_count = new_count
+            # Disable auto-follow when manually zooming
+            self.zoom_auto_follow = (new_start + new_count >= max_len)
+
+        self.draw_chart()
+
+    def _on_chart_scroll(self, event):
+        canvas = self.chart_canvas
+        canvas.update_idletasks()
+        w = max(canvas.winfo_width(), 1)
+        frac = event.x / w
+        if event.delta > 0:
+            self._apply_zoom(0.7, frac)
+        else:
+            self._apply_zoom(1.4, frac)
+
+    def _on_chart_press(self, event):
+        self.zoom_drag_start = event.x
+
+    def _on_chart_drag(self, event):
+        if self.zoom_drag_start is None:
+            return
+        if self.zoom_view_count <= 0:
+            return
+
+        canvas = self.chart_canvas
+        canvas.update_idletasks()
+        w = max(canvas.winfo_width(), 1)
+
+        dx = self.zoom_drag_start - event.x
+        self.zoom_drag_start = event.x
+
+        # Find max_len
+        max_len = 0
+        for key, _, _ in getattr(cfg, 'PLOT_KEYS', []):
+            if self.plot_enabled_vars.get(key, tk.BooleanVar(value=False)).get():
+                max_len = max(max_len, len(self.plot_series.get(key, [])))
+        if max_len < 2:
+            return
+
+        points_per_pixel = self.zoom_view_count / w
+        shift = int(dx * points_per_pixel)
+        if shift == 0:
+            return
+
+        new_start = self.zoom_view_start + shift
+        new_start = max(0, min(new_start, max_len - self.zoom_view_count))
+        self.zoom_view_start = new_start
+        self.zoom_auto_follow = (new_start + self.zoom_view_count >= max_len)
+        self.draw_chart()
+
+    def _on_chart_release(self, event):
+        self.zoom_drag_start = None
+
+    def _on_chart_hover(self, event):
+        self.chart_crosshair_x = event.x
+        if not self._hover_pending:
+            self._hover_pending = True
+            self.root.after(30, self._flush_hover)
+
+    def _on_chart_leave(self, event):
+        self.chart_crosshair_x = None
+        self._hover_pending = False
+        self.draw_chart()
+
+    def _flush_hover(self):
+        self._hover_pending = False
+        if self.chart_crosshair_x is not None:
+            self.draw_chart()
+
+    # ======================================================================
+    # Minimap
+    # ======================================================================
+    def _draw_minimap(self):
+        canvas = self.minimap_canvas
+        canvas.update_idletasks()
+        w = max(canvas.winfo_width(), 60)
+        h = max(canvas.winfo_height(), 20)
+        canvas.delete('all')
+        canvas.create_rectangle(0, 0, w, h, fill='#0b0f1a', outline='')
+
+        plot_keys = getattr(cfg, 'PLOT_KEYS', [])
+        visible_keys = [k for k, _, _ in plot_keys if self.plot_enabled_vars.get(k, tk.BooleanVar(value=False)).get()]
+
+        # Find max_len
+        max_len = 0
+        all_vals = []
+        for key in visible_keys:
+            series = self.plot_series.get(key, [])
+            max_len = max(max_len, len(series))
+            all_vals.extend(series)
+
+        if max_len < 2 or not all_vals:
+            return
+
+        mn = min(all_vals)
+        mx = max(all_vals)
+        span = mx - mn
+        if span == 0:
+            span = 1
+
+        color_map = {k: c for k, c, _ in plot_keys}
+        pad = 2
+        for key in visible_keys:
+            color = color_map.get(key, '#ffffff')
+            series = self.plot_series.get(key, [])
+            if len(series) < 2:
+                continue
+            points = []
+            for i, v in enumerate(series):
+                x = pad + (w - 2 * pad) * i / max(len(series) - 1, 1)
+                y = pad + (h - 2 * pad) * (1 - (v - mn) / span)
+                points.extend((x, y))
+            if len(points) >= 4:
+                canvas.create_line(*points, fill=color, width=1, smooth=True)
+
+        # Viewport rectangle when zoomed
+        if self.zoom_view_count > 0 and max_len > 0:
+            vp_x1 = pad + (w - 2 * pad) * self.zoom_view_start / max_len
+            vp_x2 = pad + (w - 2 * pad) * min(self.zoom_view_start + self.zoom_view_count, max_len) / max_len
+            canvas.create_rectangle(vp_x1, 1, vp_x2, h - 1,
+                                     outline=THEME['accent_light'], width=1, fill='', dash=(2, 2))
+
+    def _on_minimap_press(self, event):
+        self._minimap_drag_x = event.x
+        self._on_minimap_drag(event)
+
+    def _on_minimap_drag(self, event):
+        canvas = self.minimap_canvas
+        canvas.update_idletasks()
+        w = max(canvas.winfo_width(), 1)
+
+        max_len = 0
+        for key, _, _ in getattr(cfg, 'PLOT_KEYS', []):
+            if self.plot_enabled_vars.get(key, tk.BooleanVar(value=False)).get():
+                max_len = max(max_len, len(self.plot_series.get(key, [])))
+        if max_len < 2 or self.zoom_view_count <= 0:
+            return
+
+        frac = event.x / w
+        center_idx = int(frac * max_len)
+        new_start = center_idx - self.zoom_view_count // 2
+        new_start = max(0, min(new_start, max_len - self.zoom_view_count))
+        self.zoom_view_start = new_start
+        self.zoom_auto_follow = (new_start + self.zoom_view_count >= max_len)
+        self.draw_chart()
 
     # ======================================================================
     # Protocol Parsing
@@ -678,6 +1035,14 @@ class TuningToolApp:
                     if len(series) > MAX_PLOT_POINTS:
                         del series[:-MAX_PLOT_POINTS]
 
+        # Auto-follow logic for zoom
+        if self.zoom_auto_follow and self.zoom_view_count > 0:
+            for key, _, _ in getattr(cfg, 'PLOT_KEYS', []):
+                total = len(self.plot_series.get(key, []))
+                if total > self.zoom_view_count:
+                    self.zoom_view_start = total - self.zoom_view_count
+                break
+
         # Async file writes
         _file_writer.write(LATEST_TEXT_PATH, text)
         _file_writer.write(LATEST_JSON_PATH, json.dumps(entry, ensure_ascii=False, default=str))
@@ -688,6 +1053,7 @@ class TuningToolApp:
             parsed = dict(self.latest_parsed)
         self.update_metric_cards(parsed)
         self.update_status_banner(parsed)
+        self._update_sparklines(parsed)
 
     def _refresh_custom_panels(self):
         with self.telemetry_lock:
@@ -822,55 +1188,110 @@ class TuningToolApp:
 
         plot_keys = getattr(cfg, 'PLOT_KEYS', [])
         visible_keys = [k for k, _, _ in plot_keys if self.plot_enabled_vars.get(k, tk.BooleanVar(value=False)).get()]
+
+        # Determine zoom viewport
+        max_series_len = 0
+        for key in visible_keys:
+            max_series_len = max(max_series_len, len(self.plot_series.get(key, [])))
+
+        view_start = 0
+        view_count = max_series_len
+        if self.zoom_view_count > 0 and self.zoom_view_count < max_series_len:
+            view_start = self.zoom_view_start
+            view_count = self.zoom_view_count
+
         all_values = []
         for key in visible_keys:
-            all_values.extend(self.plot_series.get(key, []))
+            series = self.plot_series.get(key, [])
+            sliced = series[view_start:view_start + view_count]
+            all_values.extend(sliced)
 
         if not visible_keys:
             canvas.create_text(width / 2, height / 2, text='No channels enabled', fill='#94a3b8', font=('Segoe UI', 12))
+            self._draw_minimap()
             return
         if not all_values:
             canvas.create_text(width / 2, height / 2, text='No telemetry yet', fill='#94a3b8', font=('Segoe UI', 12))
+            self._draw_minimap()
             return
 
         min_v, max_v, scale_mode = self.get_plot_scale_bounds(all_values)
         if min_v is None or max_v is None:
             canvas.create_text(width / 2, height / 2, text='Invalid fixed scale', fill='#fca5a5', font=('Segoe UI', 12))
+            self._draw_minimap()
             return
         span = max_v - min_v
         if span == 0: span = 1
 
+        # Grid lines
         for i in range(6):
             y = top_pad + plot_h * i / 5
             value = max_v - span * i / 5
             canvas.create_line(left_pad, y, left_pad + plot_w, y, fill='#1e293b')
             canvas.create_text(left_pad - 8, y, text=f'{value:.1f}', fill='#94a3b8', anchor='e', font=('Consolas', 9))
 
+        # Dashed center gridline
+        center_y = top_pad + plot_h / 2
+        canvas.create_line(left_pad, center_y, left_pad + plot_w, center_y,
+                           fill='#334155', dash=(4, 4))
+
         color_map = {k: c for k, c, _ in plot_keys}
         for key in visible_keys:
             color = color_map.get(key, '#ffffff')
-            raw_values = self.plot_series.get(key, [])
+            raw_series = self.plot_series.get(key, [])
+            raw_values = raw_series[view_start:view_start + view_count]
             if len(raw_values) < 2:
                 continue
             values = self.smooth_values(raw_values) if self.plot_smooth_var.get() else raw_values
+
             points = []
             for idx, v in enumerate(values):
                 x = left_pad + plot_w * idx / max(len(values) - 1, 1)
                 y = top_pad + (max_v - v) / span * plot_h
                 points.extend((x, y))
+
+            # Gradient fill with stipple
             if self.plot_fill_var.get() and len(points) >= 4:
                 polygon = [points[0], top_pad + plot_h] + points + [points[-2], top_pad + plot_h]
                 canvas.create_polygon(*polygon, fill=color, stipple='gray25', outline='')
-            canvas.create_line(*points, fill=color, width=3, smooth=self.plot_smooth_var.get(), splinesteps=20)
-            canvas.create_oval(points[-2] - 4, points[-1] - 4, points[-2] + 4, points[-1] + 4, fill=color, outline='')
+
+            # Glow effect: wider faint line behind
+            if len(points) >= 4:
+                canvas.create_line(*points, fill=color, width=6, smooth=True,
+                                   splinesteps=32, stipple='gray50')
+
+            # Main Bezier curve
+            canvas.create_line(*points, fill=color, width=3, smooth=True, splinesteps=32)
+
+            # Endpoint dot with glow
+            if len(points) >= 2:
+                ex, ey = points[-2], points[-1]
+                # Glow
+                canvas.create_oval(ex - 7, ey - 7, ex + 7, ey + 7,
+                                   fill=color, outline='', stipple='gray50')
+                # Solid dot
+                canvas.create_oval(ex - 4, ey - 4, ex + 4, ey + 4,
+                                   fill=color, outline='')
+
+        # Hover crosshair
+        if self.chart_crosshair_x is not None:
+            cx = self.chart_crosshair_x
+            if left_pad <= cx <= left_pad + plot_w:
+                canvas.create_line(cx, top_pad, cx, top_pad + plot_h,
+                                   fill='#475569', dash=(3, 3), width=1)
 
         summary = [f'scale={scale_mode}[{min_v:.1f},{max_v:.1f}]']
+        if self.zoom_view_count > 0:
+            summary.append(f'zoom=[{view_start}:{view_start + view_count}]')
         for k, c, _ in plot_keys:
             vals = self.plot_series.get(k, [])
             if vals:
                 marker = '\u25cf' if k in visible_keys else '\u25cb'
                 summary.append(f'{marker} {k}={vals[-1]:.2f}')
         self.chart_summary_var.set(' | '.join(summary[:12]))
+
+        # Draw minimap
+        self._draw_minimap()
 
     # ======================================================================
     # HTTP API Server
@@ -1130,15 +1551,23 @@ class TuningToolApp:
 
     def refresh_connection_summary(self):
         if not self.running:
-            self.conn_summary.config(text='Stopped', fg=CARD_THEME['muted'])
+            self.conn_badge.config(text='Stopped', fg=THEME['text_muted'])
+            self.conn_summary.config(text='Stopped', fg=THEME['text_muted'])
+            self.conn_dot.itemconfig('dot', fill=THEME['text_dim'])
         elif self.mode_var.get() == 'server':
             n = len(self.server_connections)
-            self.conn_summary.config(text=f'Server running ({n} clients)', fg=CARD_THEME['ok'])
+            self.conn_badge.config(text=f'Server ({n} clients)', fg=THEME['ok'])
+            self.conn_summary.config(text=f'Server running ({n} clients)', fg=THEME['ok'])
+            self.conn_dot.itemconfig('dot', fill=THEME['ok'])
         else:
             connected = self.client_socket is not None
+            self.conn_badge.config(
+                text='Connected' if connected else 'Connecting...',
+                fg=THEME['ok'] if connected else THEME['warn'])
             self.conn_summary.config(
                 text='Connected' if connected else 'Connecting...',
-                fg=CARD_THEME['ok'] if connected else CARD_THEME['warn'])
+                fg=THEME['ok'] if connected else THEME['warn'])
+            self.conn_dot.itemconfig('dot', fill=THEME['ok'] if connected else THEME['warn'])
 
     def refresh_connection_list(self):
         self.conn_listbox.delete(0, 'end')
