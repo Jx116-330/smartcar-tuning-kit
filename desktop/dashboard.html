@@ -1,0 +1,1669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SmartCar Tuning Tool</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Orbitron:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   CSS Custom Properties
+   ============================================================ */
+:root {
+  /* Background layers — lifted for visibility */
+  --bg-deep: #0e1525;
+  --bg-mid: #151d30;
+  --bg-surface: #1b2540;
+  --bg-elevated: #233050;
+
+  /* Glass panels — more visible */
+  --glass-bg: rgba(255,255,255,0.06);
+  --glass-border: rgba(255,255,255,0.12);
+  --glass-hover: rgba(255,255,255,0.10);
+
+  /* Text — brighter for readability */
+  --text-primary: #eef2ff;
+  --text-secondary: #a8b8d0;
+  --text-muted: #5a6d85;
+  --text-dim: #3d4f66;
+
+  /* Accent */
+  --accent: #7c3aed;
+  --accent-light: #a78bfa;
+  --accent-gradient: linear-gradient(135deg, #667eea, #7c3aed);
+  --accent-glow: rgba(124, 58, 237, 0.3);
+
+  /* Chart colors */
+  --ch0: #818cf8;
+  --ch1: #34d399;
+  --ch2: #f87171;
+  --ch3: #c084fc;
+
+  /* Status */
+  --status-ok: #22c55e;
+  --status-warn: #f59e0b;
+  --status-danger: #ef4444;
+
+  /* Typography */
+  --font-display: 'Orbitron', sans-serif;
+  --font-label: 'Exo 2', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* Sizing */
+  --header-h: 52px;
+  --metrics-h: 120px;
+  --console-h: 130px;
+  --radius: 8px;
+  --radius-lg: 12px;
+}
+
+/* ============================================================
+   Reset & Base
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  font-family: var(--font-label);
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.18); }
+
+/* ============================================================
+   Layout Grid
+   ============================================================ */
+#app {
+  display: grid;
+  grid-template-rows: var(--header-h) var(--metrics-h) 1fr var(--console-h);
+  grid-template-columns: 1fr 340px;
+  height: 100vh;
+  gap: 0;
+}
+
+/* ============================================================
+   Header
+   ============================================================ */
+#header {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  background: linear-gradient(180deg, var(--bg-surface), var(--bg-mid));
+  border-bottom: 1px solid var(--glass-border);
+  z-index: 10;
+}
+
+#header .logo {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: 2px;
+  background: var(--accent-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-transform: uppercase;
+}
+
+#header .spacer { flex: 1; }
+
+.status-group {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.status-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  transition: background 0.3s;
+  position: relative;
+}
+.status-dot.connected {
+  background: var(--status-ok);
+  box-shadow: 0 0 8px var(--status-ok);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+.status-dot.warning {
+  background: var(--status-warn);
+  box-shadow: 0 0 8px var(--status-warn);
+}
+.status-dot.error {
+  background: var(--status-danger);
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; box-shadow: 0 0 6px var(--status-ok); }
+  50% { opacity: 0.6; box-shadow: 0 0 12px var(--status-ok); }
+}
+
+.badge {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  color: var(--text-secondary);
+}
+
+.badge-accent {
+  background: rgba(124,58,237,0.15);
+  border-color: rgba(124,58,237,0.3);
+  color: var(--accent-light);
+}
+
+/* ============================================================
+   Metrics Bar
+   ============================================================ */
+#metrics-bar {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  padding: 10px 20px;
+  background: var(--bg-deep);
+}
+
+.metric-card {
+  background: var(--bg-surface);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: var(--radius-lg);
+  padding: 12px 16px;
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(12px);
+  transition: border-color 0.2s, box-shadow 0.2s;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+}
+.metric-card:hover {
+  border-color: rgba(255,255,255,0.18);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+}
+
+.metric-card .accent-bar {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+}
+
+.metric-card .mc-label {
+  font-family: var(--font-label);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.metric-card .mc-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.metric-card .mc-value {
+  font-family: var(--font-mono);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+  transition: color 0.15s;
+  min-width: 80px;
+}
+
+.metric-card .mc-delta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+}
+.mc-delta.up { color: var(--status-ok); }
+.mc-delta.down { color: var(--status-danger); }
+
+.metric-card .mc-spark {
+  position: absolute;
+  bottom: 6px; right: 8px;
+  width: 80px; height: 28px;
+  opacity: 0.6;
+}
+
+.mc-value.flash {
+  animation: val-flash 0.3s ease-out;
+}
+@keyframes val-flash {
+  0% { color: #fff; text-shadow: 0 0 8px rgba(255,255,255,0.5); }
+  100% { color: var(--text-primary); text-shadow: none; }
+}
+
+/* ============================================================
+   Chart Area (left column, main row)
+   ============================================================ */
+#chart-area {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-deep);
+  border-right: 1px solid var(--glass-border);
+  overflow: hidden;
+  position: relative;
+}
+
+#chart-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  flex-shrink: 0;
+  background: var(--bg-mid);
+  border-bottom: 1px solid var(--glass-border);
+  flex-wrap: wrap;
+}
+
+.channel-chip {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  border: 1px solid;
+  transition: all 0.15s;
+  user-select: none;
+}
+.channel-chip.active { opacity: 1; }
+.channel-chip.inactive { opacity: 0.35; }
+.channel-chip:hover { opacity: 0.85; }
+
+.chart-btn-group {
+  display: flex;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.chart-btn {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 3px 10px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+  border-radius: 4px;
+}
+.chart-btn:hover {
+  background: var(--glass-hover);
+  color: var(--text-primary);
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+
+.zoom-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-left: 6px;
+}
+
+#chart-container {
+  flex: 1;
+  position: relative;
+  min-height: 0;
+}
+
+#mainChart {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Tooltip */
+#chart-tooltip {
+  position: absolute;
+  pointer-events: none;
+  background: rgba(8,11,20,0.92);
+  border: 1px solid var(--glass-border);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-primary);
+  backdrop-filter: blur(8px);
+  opacity: 0;
+  transition: opacity 0.1s;
+  z-index: 20;
+  white-space: nowrap;
+}
+#chart-tooltip.visible { opacity: 1; }
+
+/* Minimap */
+#minimap-area {
+  height: 36px;
+  flex-shrink: 0;
+  position: relative;
+  background: #0c1222;
+  border-top: 1px solid var(--glass-border);
+  cursor: pointer;
+}
+#minimapCanvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.minimap-viewport {
+  position: absolute;
+  top: 2px; bottom: 2px;
+  background: rgba(102,126,234,0.15);
+  border: 1px solid rgba(102,126,234,0.4);
+  border-radius: 3px;
+  pointer-events: none;
+}
+
+/* ============================================================
+   Right Panel
+   ============================================================ */
+#right-panel {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-mid);
+  overflow: hidden;
+}
+
+/* Tabs */
+.tab-bar {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--glass-border);
+  flex-shrink: 0;
+  background: var(--bg-surface);
+}
+
+.tab-btn {
+  font-family: var(--font-label);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+.tab-btn:hover { color: var(--text-secondary); }
+.tab-btn.active {
+  color: var(--accent-light);
+  border-bottom-color: var(--accent);
+}
+
+.tab-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: none;
+}
+.tab-content.active { display: block; }
+
+/* Detail metrics */
+.detail-section-title {
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--accent-light);
+  margin: 14px 0 8px;
+  padding: 6px 0 6px 10px;
+  border-left: 3px solid var(--accent);
+  background: linear-gradient(90deg, rgba(124,58,237,0.08), transparent);
+  border-radius: 0 4px 4px 0;
+}
+.detail-section-title:first-child { margin-top: 0; }
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+
+.detail-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 5px;
+  background: var(--bg-surface);
+  border: 1px solid rgba(255,255,255,0.05);
+  transition: all 0.15s;
+}
+.detail-item:hover {
+  border-color: rgba(255,255,255,0.15);
+  background: var(--bg-elevated);
+}
+
+.detail-item .di-label {
+  font-family: var(--font-label);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.detail-item .di-value {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Highlight key values */
+.detail-item.highlight .di-value {
+  color: var(--accent-light);
+  text-shadow: 0 0 8px rgba(167,139,250,0.3);
+}
+.detail-item.status-ok .di-value {
+  color: var(--status-ok);
+}
+.detail-item.status-warn .di-value {
+  color: var(--status-warn);
+}
+
+/* Command area */
+#cmd-area {
+  flex-shrink: 0;
+  padding: 10px 12px;
+  border-top: 1px solid var(--glass-border);
+  background: var(--bg-deep);
+}
+
+.cmd-quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.cmd-btn {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 6px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.cmd-btn:hover {
+  background: rgba(124,58,237,0.12);
+  border-color: rgba(124,58,237,0.3);
+  color: var(--accent-light);
+  box-shadow: 0 0 12px rgba(124,58,237,0.15);
+}
+.cmd-btn.sim-start {
+  background: rgba(34,197,94,0.1);
+  border-color: rgba(34,197,94,0.25);
+  color: #34d399;
+}
+.cmd-btn.sim-start:hover {
+  background: rgba(34,197,94,0.2);
+  box-shadow: 0 0 12px rgba(34,197,94,0.15);
+}
+.cmd-btn.sim-stop {
+  background: rgba(239,68,68,0.1);
+  border-color: rgba(239,68,68,0.25);
+  color: #f87171;
+}
+.cmd-btn.sim-stop:hover {
+  background: rgba(239,68,68,0.2);
+  box-shadow: 0 0 12px rgba(239,68,68,0.15);
+}
+
+.cmd-input-row {
+  display: flex;
+  gap: 6px;
+}
+
+#cmdInput {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 6px 10px;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid var(--glass-border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.2s;
+}
+#cmdInput:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 8px var(--accent-glow);
+}
+#cmdInput::placeholder { color: var(--text-dim); }
+
+#cmdSend {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 6px 16px;
+  border-radius: 6px;
+  background: var(--accent-gradient);
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+#cmdSend:hover {
+  box-shadow: 0 0 16px var(--accent-glow);
+  transform: translateY(-1px);
+}
+
+/* ============================================================
+   Console
+   ============================================================ */
+#console {
+  grid-column: 1 / -1;
+  background: #0a0f1a;
+  border-top: 1px solid var(--glass-border);
+  padding: 8px 16px;
+  overflow-y: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.console-line {
+  opacity: 0;
+  animation: fade-in 0.25s ease-out forwards;
+}
+@keyframes fade-in {
+  to { opacity: 1; }
+}
+
+.console-line .cl-time {
+  color: var(--text-dim);
+  margin-right: 8px;
+}
+.console-line .cl-tag {
+  font-weight: 600;
+  margin-right: 6px;
+}
+.cl-tag.info  { color: var(--ch0); }
+.cl-tag.ok    { color: var(--status-ok); }
+.cl-tag.warn  { color: var(--status-warn); }
+.cl-tag.error { color: var(--status-danger); }
+.cl-tag.cmd   { color: var(--ch3); }
+
+/* ============================================================
+   Stagger reveal animation
+   ============================================================ */
+.reveal {
+  opacity: 0;
+  transform: translateY(12px);
+  animation: reveal 0.4s ease-out forwards;
+}
+@keyframes reveal {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ============================================================
+   Responsive tweaks
+   ============================================================ */
+@media (max-width: 1100px) {
+  #app {
+    grid-template-columns: 1fr 280px;
+  }
+  .metric-card .mc-value { font-size: 20px; }
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <!-- ===================== HEADER ===================== -->
+  <header id="header">
+    <div class="logo">SmartCar Tuning Tool</div>
+    <div class="spacer"></div>
+    <div class="status-group">
+      <div class="status-dot" id="connDot"></div>
+      <span class="badge" id="connLabel">Disconnected</span>
+      <span class="badge badge-accent" id="clientCount">0 clients</span>
+    </div>
+  </header>
+
+  <!-- ===================== METRICS BAR ===================== -->
+  <div id="metrics-bar">
+    <!-- Cards injected by JS -->
+  </div>
+
+  <!-- ===================== CHART AREA ===================== -->
+  <div id="chart-area">
+    <div id="chart-toolbar">
+      <!-- Channel chips injected by JS -->
+      <div class="chart-btn-group">
+        <button class="chart-btn" id="btnZoomIn" title="Zoom in">+</button>
+        <button class="chart-btn" id="btnZoomOut" title="Zoom out">&minus;</button>
+        <button class="chart-btn" id="btnZoomReset" title="Reset zoom">Reset</button>
+        <span class="zoom-label" id="zoomLabel">1.0x</span>
+      </div>
+    </div>
+    <div id="chart-container">
+      <canvas id="mainChart"></canvas>
+      <div id="chart-tooltip"></div>
+    </div>
+    <div id="minimap-area">
+      <canvas id="minimapCanvas"></canvas>
+      <div class="minimap-viewport" id="minimapViewport"></div>
+    </div>
+  </div>
+
+  <!-- ===================== RIGHT PANEL ===================== -->
+  <div id="right-panel">
+    <div class="tab-bar">
+      <button class="tab-btn active" data-tab="telemetry">Telemetry</button>
+      <button class="tab-btn" data-tab="commands">Commands</button>
+    </div>
+    <div class="tab-content active" id="tab-telemetry">
+      <!-- Injected by JS -->
+    </div>
+    <div class="tab-content" id="tab-commands">
+      <div style="color: var(--text-muted); font-size: 11px; padding: 8px;">
+        Use the command panel below or the quick buttons to send commands to the device.
+      </div>
+    </div>
+    <div id="cmd-area">
+      <div class="cmd-quick">
+        <button class="cmd-btn" data-cmd="GET PID">GET PID</button>
+        <button class="cmd-btn" data-cmd="SAVE PID">SAVE PID</button>
+        <button class="cmd-btn sim-start" data-cmd="SET TELEMETRY ON">Start Sim</button>
+        <button class="cmd-btn sim-stop" data-cmd="SET TELEMETRY OFF">Stop Sim</button>
+      </div>
+      <div class="cmd-input-row">
+        <input type="text" id="cmdInput" placeholder="Type a command..." autocomplete="off">
+        <button id="cmdSend">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== CONSOLE ===================== -->
+  <div id="console"></div>
+</div>
+
+<script>
+/* ================================================================
+   DATA LAYER
+   ================================================================ */
+const API_BASE = 'http://127.0.0.1:9898';
+const POLL_INTERVAL = 200;
+const MAX_DATA_POINTS = 10000;
+const MAX_CONSOLE_LINES = 200;
+
+// Channel definitions
+const CHANNELS = [
+  { key: 'gx',   label: 'GX',   color: '#818cf8', visible: true },
+  { key: 'gy',   label: 'GY',   color: '#34d399', visible: true },
+  { key: 'gz',   label: 'GZ',   color: '#f87171', visible: true },
+  { key: 'gxyz', label: 'GXYZ', color: '#c084fc', visible: true },
+];
+
+// Primary metric keys (match CHANNELS order)
+const PRIMARY_METRICS = ['gx', 'gy', 'gz', 'gxyz'];
+
+// Detail metrics grouped
+const DETAIL_GROUPS = [
+  {
+    title: 'Attitude',
+    fields: [
+      { key: 'roll', label: 'ROLL' }, { key: 'pitch', label: 'PITCH' },
+      { key: 'yaw', label: 'YAW' }, { key: 'anorm', label: 'ANORM' },
+    ]
+  },
+  {
+    title: 'Bias',
+    fields: [
+      { key: 'bias_ok', label: 'BIAS OK' }, { key: 'bias_cal', label: 'BIAS CAL' },
+      { key: 'bias_n', label: 'BIAS N' }, { key: 'bias_t', label: 'BIAS T' },
+    ]
+  },
+  {
+    title: 'Extended',
+    fields: [
+      { key: 'gcx', label: 'GCX' }, { key: 'gcy', label: 'GCY' },
+      { key: 'gcz', label: 'GCZ' }, { key: 'gbx', label: 'GBX' },
+      { key: 'gby', label: 'GBY' }, { key: 'gbz', label: 'GBZ' },
+      { key: 'bias_flash', label: 'FLASH' },
+      { key: 'q0', label: 'Q0' }, { key: 'q1', label: 'Q1' },
+      { key: 'q2', label: 'Q2' }, { key: 'q3', label: 'Q3' },
+      { key: 'ax', label: 'AX' }, { key: 'ay', label: 'AY' },
+      { key: 'az', label: 'AZ' }, { key: 'anorm', label: 'ANORM' },
+      { key: 'att_upd', label: 'ATT UPD' },
+    ]
+  },
+];
+
+// Data stores
+const dataStore = {
+  history: [],                    // All data points: [{gx, gy, gz, gxyz, ...}, ...]
+  sparklines: {},                 // key -> last 20 values
+  prevValues: {},                 // For delta calculation
+  connected: false,
+  serverInfo: { mode: '--', port: '--', connections: 0, running: false },
+  lastCmdResult: {},
+};
+
+// Chart view state
+const view = {
+  viewStart: 0,       // Index of first visible point
+  viewCount: 200,      // Number of visible points
+  baseCount: 200,      // Default view count (for zoom level calc)
+  autoFollow: true,    // Auto-scroll to latest
+  isDragging: false,
+  dragStartX: 0,
+  dragStartView: 0,
+};
+
+// Minimap drag state
+const mmDrag = { active: false, startX: 0, startView: 0 };
+
+/* ================================================================
+   UI INITIALIZATION
+   ================================================================ */
+function initUI() {
+  buildMetricCards();
+  buildChannelChips();
+  buildDetailPanel();
+  bindTabs();
+  bindCommands();
+  bindChartEvents();
+  bindMinimapEvents();
+  consoleLog('info', 'Dashboard', 'Initializing...');
+}
+
+function buildMetricCards() {
+  const bar = document.getElementById('metrics-bar');
+  bar.innerHTML = '';
+  PRIMARY_METRICS.forEach((key, i) => {
+    const ch = CHANNELS[i];
+    const card = document.createElement('div');
+    card.className = 'metric-card reveal';
+    card.style.animationDelay = `${i * 0.08}s`;
+    card.innerHTML = `
+      <div class="accent-bar" style="background: ${ch.color}"></div>
+      <div class="mc-label">${ch.label}</div>
+      <div class="mc-row">
+        <span class="mc-value" id="mv-${key}">--</span>
+        <span class="mc-delta" id="md-${key}"></span>
+      </div>
+      <svg class="mc-spark" id="spark-${key}" viewBox="0 0 80 28" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="sg-${key}" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="${ch.color}" stop-opacity="0.4"/>
+            <stop offset="100%" stop-color="${ch.color}" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+        <path id="spark-fill-${key}" fill="url(#sg-${key})" d=""/>
+        <path id="spark-line-${key}" fill="none" stroke="${ch.color}" stroke-width="1.5" d=""/>
+      </svg>
+    `;
+    bar.appendChild(card);
+    dataStore.sparklines[key] = [];
+  });
+}
+
+function buildChannelChips() {
+  const toolbar = document.getElementById('chart-toolbar');
+  // Insert before the button group
+  const btnGroup = toolbar.querySelector('.chart-btn-group');
+  CHANNELS.forEach((ch, i) => {
+    const chip = document.createElement('span');
+    chip.className = `channel-chip ${ch.visible ? 'active' : 'inactive'}`;
+    chip.style.borderColor = ch.color;
+    chip.style.color = ch.color;
+    chip.style.background = ch.visible ? hexToRGBA(ch.color, 0.12) : 'transparent';
+    chip.textContent = ch.label;
+    chip.dataset.idx = i;
+    chip.addEventListener('click', () => {
+      ch.visible = !ch.visible;
+      chip.className = `channel-chip ${ch.visible ? 'active' : 'inactive'}`;
+      chip.style.background = ch.visible ? hexToRGBA(ch.color, 0.12) : 'transparent';
+      requestChartRender();
+    });
+    toolbar.insertBefore(chip, btnGroup);
+  });
+}
+
+function buildDetailPanel() {
+  const container = document.getElementById('tab-telemetry');
+  container.innerHTML = '';
+  DETAIL_GROUPS.forEach(group => {
+    const title = document.createElement('div');
+    title.className = 'detail-section-title';
+    title.textContent = group.title;
+    container.appendChild(title);
+
+    const grid = document.createElement('div');
+    grid.className = 'detail-grid';
+    const highlightKeys = new Set(['yaw', 'roll', 'pitch']);
+    const statusOkKeys = new Set(['bias_ok']);
+    group.fields.forEach(f => {
+      const item = document.createElement('div');
+      let cls = 'detail-item';
+      if (highlightKeys.has(f.key)) cls += ' highlight';
+      if (statusOkKeys.has(f.key)) cls += ' status-ok';
+      item.className = cls;
+      item.id = 'di-' + f.key;
+      item.innerHTML = `
+        <span class="di-label">${f.label}</span>
+        <span class="di-value" id="dv-${f.key}">--</span>
+      `;
+      grid.appendChild(item);
+    });
+    container.appendChild(grid);
+  });
+}
+
+function bindTabs() {
+  const btns = document.querySelectorAll('.tab-btn');
+  btns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      btns.forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
+    });
+  });
+}
+
+function bindCommands() {
+  // Quick command buttons
+  document.querySelectorAll('.cmd-btn[data-cmd]').forEach(btn => {
+    btn.addEventListener('click', () => sendCommand(btn.dataset.cmd));
+  });
+
+  // Manual command input
+  const input = document.getElementById('cmdInput');
+  const sendBtn = document.getElementById('cmdSend');
+  sendBtn.addEventListener('click', () => {
+    const cmd = input.value.trim();
+    if (cmd) { sendCommand(cmd); input.value = ''; }
+  });
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      const cmd = input.value.trim();
+      if (cmd) { sendCommand(cmd); input.value = ''; }
+    }
+  });
+}
+
+/* ================================================================
+   CHART INTERACTION EVENTS
+   ================================================================ */
+function bindChartEvents() {
+  const canvas = document.getElementById('mainChart');
+
+  // Wheel zoom
+  canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    const mouseXRatio = (e.clientX - rect.left) / rect.width;
+    const zoomFactor = e.deltaY > 0 ? 1.15 : 0.87;
+    const newCount = Math.max(20, Math.min(dataStore.history.length, Math.round(view.viewCount * zoomFactor)));
+    const delta = newCount - view.viewCount;
+    // Zoom centered on mouse position
+    const leftShift = Math.round(delta * mouseXRatio);
+    view.viewStart = Math.max(0, view.viewStart - leftShift);
+    view.viewCount = newCount;
+    clampView();
+    view.autoFollow = (view.viewStart + view.viewCount >= dataStore.history.length);
+    updateZoomLabel();
+    requestChartRender();
+  }, { passive: false });
+
+  // Drag pan
+  canvas.addEventListener('mousedown', e => {
+    if (e.button === 0) {
+      view.isDragging = true;
+      view.dragStartX = e.clientX;
+      view.dragStartView = view.viewStart;
+      canvas.style.cursor = 'grabbing';
+    }
+  });
+  window.addEventListener('mousemove', e => {
+    if (view.isDragging) {
+      const rect = document.getElementById('mainChart').getBoundingClientRect();
+      const pxPerPoint = rect.width / view.viewCount;
+      const dx = e.clientX - view.dragStartX;
+      const pointsDelta = Math.round(dx / pxPerPoint);
+      view.viewStart = Math.max(0, Math.min(dataStore.history.length - view.viewCount, view.dragStartView - pointsDelta));
+      view.autoFollow = (view.viewStart + view.viewCount >= dataStore.history.length);
+      updateZoomLabel();
+      requestChartRender();
+    }
+    // Tooltip
+    updateTooltip(e);
+  });
+  window.addEventListener('mouseup', () => {
+    if (view.isDragging) {
+      view.isDragging = false;
+      document.getElementById('mainChart').style.cursor = 'crosshair';
+    }
+  });
+
+  // Double-click reset
+  canvas.addEventListener('dblclick', () => {
+    view.viewCount = view.baseCount;
+    view.autoFollow = true;
+    clampView();
+    updateZoomLabel();
+    requestChartRender();
+  });
+
+  // Mouse leave hides tooltip
+  canvas.addEventListener('mouseleave', () => {
+    document.getElementById('chart-tooltip').classList.remove('visible');
+  });
+
+  // Zoom buttons
+  document.getElementById('btnZoomIn').addEventListener('click', () => {
+    view.viewCount = Math.max(20, Math.round(view.viewCount * 0.75));
+    clampView();
+    view.autoFollow = (view.viewStart + view.viewCount >= dataStore.history.length);
+    updateZoomLabel();
+    requestChartRender();
+  });
+  document.getElementById('btnZoomOut').addEventListener('click', () => {
+    view.viewCount = Math.min(dataStore.history.length || view.baseCount, Math.round(view.viewCount * 1.35));
+    clampView();
+    view.autoFollow = (view.viewStart + view.viewCount >= dataStore.history.length);
+    updateZoomLabel();
+    requestChartRender();
+  });
+  document.getElementById('btnZoomReset').addEventListener('click', () => {
+    view.viewCount = view.baseCount;
+    view.autoFollow = true;
+    clampView();
+    updateZoomLabel();
+    requestChartRender();
+  });
+
+  canvas.style.cursor = 'crosshair';
+}
+
+function bindMinimapEvents() {
+  const mm = document.getElementById('minimap-area');
+  mm.addEventListener('mousedown', e => {
+    mmDrag.active = true;
+    const rect = mm.getBoundingClientRect();
+    const ratio = (e.clientX - rect.left) / rect.width;
+    // Center viewport on click
+    const total = dataStore.history.length || 1;
+    view.viewStart = Math.round(ratio * total - view.viewCount / 2);
+    clampView();
+    view.autoFollow = (view.viewStart + view.viewCount >= total);
+    mmDrag.startX = e.clientX;
+    mmDrag.startView = view.viewStart;
+    updateZoomLabel();
+    requestChartRender();
+  });
+  window.addEventListener('mousemove', e => {
+    if (!mmDrag.active) return;
+    const rect = mm.getBoundingClientRect();
+    const dx = e.clientX - mmDrag.startX;
+    const total = dataStore.history.length || 1;
+    const pointsDelta = Math.round((dx / rect.width) * total);
+    view.viewStart = Math.max(0, Math.min(total - view.viewCount, mmDrag.startView + pointsDelta));
+    view.autoFollow = (view.viewStart + view.viewCount >= total);
+    updateZoomLabel();
+    requestChartRender();
+  });
+  window.addEventListener('mouseup', () => { mmDrag.active = false; });
+}
+
+function clampView() {
+  const total = dataStore.history.length;
+  if (total === 0) return;
+  view.viewCount = Math.max(20, Math.min(total, view.viewCount));
+  if (view.autoFollow) {
+    view.viewStart = Math.max(0, total - view.viewCount);
+  } else {
+    view.viewStart = Math.max(0, Math.min(total - view.viewCount, view.viewStart));
+  }
+}
+
+function updateZoomLabel() {
+  const zoom = view.baseCount / view.viewCount;
+  document.getElementById('zoomLabel').textContent =
+    zoom === 1 ? '1.0x' : zoom.toFixed(1) + 'x';
+}
+
+/* ================================================================
+   TOOLTIP
+   ================================================================ */
+function updateTooltip(e) {
+  const canvas = document.getElementById('mainChart');
+  const rect = canvas.getBoundingClientRect();
+  const tooltip = document.getElementById('chart-tooltip');
+
+  if (e.clientX < rect.left || e.clientX > rect.right ||
+      e.clientY < rect.top || e.clientY > rect.bottom ||
+      view.isDragging || dataStore.history.length === 0) {
+    tooltip.classList.remove('visible');
+    return;
+  }
+
+  const xRatio = (e.clientX - rect.left) / rect.width;
+  const idx = Math.round(view.viewStart + xRatio * (view.viewCount - 1));
+  const clamped = Math.max(0, Math.min(dataStore.history.length - 1, idx));
+  const point = dataStore.history[clamped];
+  if (!point) { tooltip.classList.remove('visible'); return; }
+
+  let html = `<div style="color:var(--text-muted);margin-bottom:4px;">#${clamped}</div>`;
+  CHANNELS.forEach(ch => {
+    if (!ch.visible) return;
+    const val = point[ch.key];
+    html += `<div style="color:${ch.color}">${ch.label}: <strong>${val != null ? Number(val).toFixed(3) : '--'}</strong></div>`;
+  });
+  tooltip.innerHTML = html;
+  tooltip.classList.add('visible');
+
+  // Position tooltip
+  let tx = e.clientX - rect.left + 16;
+  let ty = e.clientY - rect.top - 10;
+  if (tx + tooltip.offsetWidth > rect.width - 8) tx = e.clientX - rect.left - tooltip.offsetWidth - 12;
+  if (ty < 8) ty = 8;
+  tooltip.style.left = tx + 'px';
+  tooltip.style.top = ty + 'px';
+}
+
+/* ================================================================
+   CHART RENDERING (Canvas)
+   ================================================================ */
+let chartRAF = null;
+function requestChartRender() {
+  if (chartRAF) return;
+  chartRAF = requestAnimationFrame(() => {
+    chartRAF = null;
+    renderChart();
+    renderMinimap();
+    updateMinimapViewport();
+  });
+}
+
+function renderChart() {
+  const canvas = document.getElementById('mainChart');
+  const container = document.getElementById('chart-container');
+  const dpr = window.devicePixelRatio || 1;
+  const W = container.clientWidth;
+  const H = container.clientHeight;
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
+
+  const data = dataStore.history;
+  if (data.length === 0) {
+    ctx.fillStyle = 'rgba(255,255,255,0.05)';
+    ctx.font = '14px "Exo 2", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Waiting for telemetry data...', W / 2, H / 2);
+    return;
+  }
+
+  const pad = { top: 16, right: 16, bottom: 24, left: 56 };
+  const cw = W - pad.left - pad.right;
+  const ch_h = H - pad.top - pad.bottom;
+
+  // Determine visible slice
+  const start = view.viewStart;
+  const count = Math.min(view.viewCount, data.length - start);
+  const slice = data.slice(start, start + count);
+
+  // Compute Y range across all visible channels
+  let yMin = Infinity, yMax = -Infinity;
+  CHANNELS.forEach(c => {
+    if (!c.visible) return;
+    slice.forEach(p => {
+      const v = parseFloat(p[c.key]);
+      if (isFinite(v)) {
+        if (v < yMin) yMin = v;
+        if (v > yMax) yMax = v;
+      }
+    });
+  });
+  if (!isFinite(yMin)) { yMin = -1; yMax = 1; }
+  const yPad = (yMax - yMin) * 0.1 || 1;
+  yMin -= yPad;
+  yMax += yPad;
+
+  // Map functions
+  const xOf = i => pad.left + (i / (count - 1 || 1)) * cw;
+  const yOf = v => pad.top + (1 - (v - yMin) / (yMax - yMin)) * ch_h;
+
+  // Grid lines
+  drawGrid(ctx, W, H, pad, cw, ch_h, yMin, yMax, xOf, yOf, count);
+
+  // Draw each channel
+  CHANNELS.forEach(c => {
+    if (!c.visible) return;
+    const pts = [];
+    slice.forEach((p, i) => {
+      const v = parseFloat(p[c.key]);
+      if (isFinite(v)) pts.push({ x: xOf(i), y: yOf(v) });
+    });
+    if (pts.length < 2) return;
+
+    // Gradient fill
+    const grad = ctx.createLinearGradient(0, pad.top, 0, pad.top + ch_h);
+    grad.addColorStop(0, hexToRGBA(c.color, 0.18));
+    grad.addColorStop(1, hexToRGBA(c.color, 0));
+    ctx.beginPath();
+    drawSmoothLine(ctx, pts);
+    ctx.lineTo(pts[pts.length - 1].x, pad.top + ch_h);
+    ctx.lineTo(pts[0].x, pad.top + ch_h);
+    ctx.closePath();
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    // Glow line (wide, blurred)
+    ctx.save();
+    ctx.shadowColor = c.color;
+    ctx.shadowBlur = 8;
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = hexToRGBA(c.color, 0.3);
+    ctx.beginPath();
+    drawSmoothLine(ctx, pts);
+    ctx.stroke();
+    ctx.restore();
+
+    // Sharp line
+    ctx.lineWidth = 1.8;
+    ctx.strokeStyle = c.color;
+    ctx.beginPath();
+    drawSmoothLine(ctx, pts);
+    ctx.stroke();
+
+    // Endpoint dot with glow
+    const last = pts[pts.length - 1];
+    ctx.save();
+    ctx.shadowColor = c.color;
+    ctx.shadowBlur = 10;
+    ctx.fillStyle = c.color;
+    ctx.beginPath();
+    ctx.arc(last.x, last.y, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    // Inner bright dot
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(last.x, last.y, 1.2, 0, Math.PI * 2);
+    ctx.fill();
+  });
+}
+
+/**
+ * Draw smooth Bezier curve through points
+ */
+function drawSmoothLine(ctx, pts) {
+  if (pts.length < 2) return;
+  ctx.moveTo(pts[0].x, pts[0].y);
+  if (pts.length === 2) {
+    ctx.lineTo(pts[1].x, pts[1].y);
+    return;
+  }
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[Math.min(pts.length - 1, i + 2)];
+    // Catmull-Rom to Bezier conversion
+    const tension = 0.3;
+    const cp1x = p1.x + (p2.x - p0.x) * tension;
+    const cp1y = p1.y + (p2.y - p0.y) * tension;
+    const cp2x = p2.x - (p3.x - p1.x) * tension;
+    const cp2y = p2.y - (p3.y - p1.y) * tension;
+    ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
+  }
+}
+
+function drawGrid(ctx, W, H, pad, cw, ch_h, yMin, yMax, xOf, yOf, count) {
+  ctx.save();
+  // Horizontal grid lines
+  const yTicks = niceScale(yMin, yMax, 6);
+  ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([]);
+  yTicks.forEach(v => {
+    const y = yOf(v);
+    if (y < pad.top || y > pad.top + ch_h) return;
+    ctx.beginPath();
+    ctx.moveTo(pad.left, y);
+    ctx.lineTo(pad.left + cw, y);
+    ctx.stroke();
+    // Label
+    ctx.fillStyle = 'rgba(255,255,255,0.2)';
+    ctx.font = '10px "JetBrains Mono", monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(formatAxis(v), pad.left - 6, y + 3.5);
+  });
+
+  // Dashed center line
+  const centerY = yOf((yMin + yMax) / 2);
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  ctx.moveTo(pad.left, centerY);
+  ctx.lineTo(pad.left + cw, centerY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+}
+
+/* ================================================================
+   MINIMAP
+   ================================================================ */
+function renderMinimap() {
+  const canvas = document.getElementById('minimapCanvas');
+  const container = document.getElementById('minimap-area');
+  const dpr = window.devicePixelRatio || 1;
+  const W = container.clientWidth;
+  const H = container.clientHeight;
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
+
+  const data = dataStore.history;
+  if (data.length < 2) return;
+
+  const pad = 2;
+  const mw = W - pad * 2;
+  const mh = H - pad * 2;
+
+  // Y range across all data
+  let yMin = Infinity, yMax = -Infinity;
+  CHANNELS.forEach(c => {
+    if (!c.visible) return;
+    data.forEach(p => {
+      const v = parseFloat(p[c.key]);
+      if (isFinite(v)) {
+        if (v < yMin) yMin = v;
+        if (v > yMax) yMax = v;
+      }
+    });
+  });
+  if (!isFinite(yMin)) return;
+  const yPadding = (yMax - yMin) * 0.05 || 1;
+  yMin -= yPadding;
+  yMax += yPadding;
+
+  // Downsample for minimap performance
+  const maxPts = Math.min(data.length, 400);
+  const step = Math.max(1, Math.floor(data.length / maxPts));
+
+  CHANNELS.forEach(c => {
+    if (!c.visible) return;
+    ctx.strokeStyle = hexToRGBA(c.color, 0.5);
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    let first = true;
+    for (let i = 0; i < data.length; i += step) {
+      const v = parseFloat(data[i][c.key]);
+      if (!isFinite(v)) continue;
+      const x = pad + (i / (data.length - 1)) * mw;
+      const y = pad + (1 - (v - yMin) / (yMax - yMin)) * mh;
+      if (first) { ctx.moveTo(x, y); first = false; }
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  });
+}
+
+function updateMinimapViewport() {
+  const vp = document.getElementById('minimapViewport');
+  const total = dataStore.history.length || 1;
+  const container = document.getElementById('minimap-area');
+  const W = container.clientWidth;
+  const left = (view.viewStart / total) * W;
+  const width = Math.max(8, (view.viewCount / total) * W);
+  vp.style.left = left + 'px';
+  vp.style.width = width + 'px';
+}
+
+/* ================================================================
+   UI UPDATE
+   ================================================================ */
+function updateMetricCards(latest) {
+  PRIMARY_METRICS.forEach(key => {
+    const valEl = document.getElementById(`mv-${key}`);
+    const deltaEl = document.getElementById(`md-${key}`);
+    if (!valEl) return;
+
+    const v = parseFloat(latest[key]);
+    if (!isFinite(v)) return;
+    const formatted = v.toFixed(2);
+    const prev = dataStore.prevValues[key];
+
+    // Flash on significant change
+    if (prev != null && Math.abs(v - prev) > 0.05) {
+      valEl.classList.remove('flash');
+      void valEl.offsetWidth; // Force reflow
+      valEl.classList.add('flash');
+    }
+
+    valEl.textContent = formatted;
+
+    // Delta arrow
+    if (prev != null) {
+      const delta = v - prev;
+      const arrow = delta >= 0 ? '\u25B2' : '\u25BC';
+      deltaEl.textContent = `${arrow}${Math.abs(delta).toFixed(2)}`;
+      deltaEl.className = `mc-delta ${delta >= 0 ? 'up' : 'down'}`;
+    }
+
+    // Sparkline
+    const spark = dataStore.sparklines[key];
+    spark.push(v);
+    if (spark.length > 20) spark.shift();
+    updateSparkline(key, spark);
+
+    dataStore.prevValues[key] = v;
+  });
+}
+
+function updateSparkline(key, values) {
+  if (values.length < 2) return;
+  const w = 80, h = 28;
+  let min = Infinity, max = -Infinity;
+  values.forEach(v => { if (v < min) min = v; if (v > max) max = v; });
+  const range = max - min || 1;
+  const pad = range * 0.1;
+  const yMin = min - pad, yMax = max + pad;
+
+  const pts = values.map((v, i) => ({
+    x: (i / (values.length - 1)) * w,
+    y: h - ((v - yMin) / (yMax - yMin)) * h
+  }));
+
+  // Build SVG path
+  let d = `M${pts[0].x.toFixed(1)},${pts[0].y.toFixed(1)}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[Math.min(pts.length - 1, i + 2)];
+    const t = 0.3;
+    const cp1x = p1.x + (p2.x - p0.x) * t;
+    const cp1y = p1.y + (p2.y - p0.y) * t;
+    const cp2x = p2.x - (p3.x - p1.x) * t;
+    const cp2y = p2.y - (p3.y - p1.y) * t;
+    d += ` C${cp1x.toFixed(1)},${cp1y.toFixed(1)} ${cp2x.toFixed(1)},${cp2y.toFixed(1)} ${p2.x.toFixed(1)},${p2.y.toFixed(1)}`;
+  }
+
+  const linePath = document.getElementById(`spark-line-${key}`);
+  if (linePath) linePath.setAttribute('d', d);
+
+  // Fill path (close to bottom)
+  const fillPath = document.getElementById(`spark-fill-${key}`);
+  if (fillPath) {
+    fillPath.setAttribute('d', d + ` L${pts[pts.length-1].x.toFixed(1)},${h} L${pts[0].x.toFixed(1)},${h} Z`);
+  }
+}
+
+function updateDetailPanel(latest) {
+  DETAIL_GROUPS.forEach(group => {
+    group.fields.forEach(f => {
+      const el = document.getElementById(`dv-${f.key}`);
+      if (!el) return;
+      const v = latest[f.key];
+      if (v != null) {
+        el.textContent = isNaN(v) ? v : Number(v).toFixed(3);
+      }
+      // Dynamic status coloring
+      const row = document.getElementById(`di-${f.key}`);
+      if (row && f.key === 'bias_ok') {
+        row.classList.toggle('status-ok', Number(v) === 1);
+        row.classList.toggle('status-warn', Number(v) !== 1);
+      }
+    });
+  });
+}
+
+function updateHeader(info) {
+  const dot = document.getElementById('connDot');
+  const label = document.getElementById('connLabel');
+  const clients = document.getElementById('clientCount');
+
+  if (dataStore.connected) {
+    if (info.running) {
+      dot.className = 'status-dot connected';
+      label.textContent = `${info.mode || 'server'} :${info.port || 9898}`;
+    } else {
+      dot.className = 'status-dot warning';
+      label.textContent = 'Idle';
+    }
+  } else {
+    dot.className = 'status-dot error';
+    label.textContent = 'Disconnected';
+  }
+  clients.textContent = `${info.connections || 0} client${info.connections !== 1 ? 's' : ''}`;
+}
+
+/* ================================================================
+   CONSOLE
+   ================================================================ */
+function consoleLog(type, tag, msg) {
+  const con = document.getElementById('console');
+  const now = new Date();
+  const ts = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+
+  const line = document.createElement('div');
+  line.className = 'console-line';
+  line.innerHTML = `<span class="cl-time">${ts}</span><span class="cl-tag ${type}">[${tag}]</span>${escapeHtml(msg)}`;
+  con.appendChild(line);
+
+  // Trim old lines
+  while (con.children.length > MAX_CONSOLE_LINES) {
+    con.removeChild(con.firstChild);
+  }
+  // Auto-scroll
+  con.scrollTop = con.scrollHeight;
+}
+
+/* ================================================================
+   NETWORK / POLLING
+   ================================================================ */
+let pollTimer = null;
+let statusTimer = null;
+
+async function pollLatest() {
+  try {
+    const resp = await fetch(`${API_BASE}/latest`);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+
+    if (!dataStore.connected) {
+      dataStore.connected = true;
+      consoleLog('ok', 'Net', 'Connected to backend API');
+    }
+
+    // Store data point
+    dataStore.history.push(data);
+    if (dataStore.history.length > MAX_DATA_POINTS) {
+      const trimCount = dataStore.history.length - MAX_DATA_POINTS;
+      dataStore.history.splice(0, trimCount);
+      view.viewStart = Math.max(0, view.viewStart - trimCount);
+    }
+
+    // Auto-follow
+    if (view.autoFollow) {
+      view.viewStart = Math.max(0, dataStore.history.length - view.viewCount);
+    }
+
+    // Update UI
+    updateMetricCards(data);
+    updateDetailPanel(data);
+    requestChartRender();
+
+    // Check for command results
+    if (data.cmd_result && Object.keys(data.cmd_result).length > 0) {
+      const cr = data.cmd_result;
+      const crKey = JSON.stringify(cr);
+      if (crKey !== JSON.stringify(dataStore.lastCmdResult) && Object.keys(cr).length > 0) {
+        dataStore.lastCmdResult = cr;
+        const display = Object.entries(cr).map(([k, v]) => `${k}=${v}`).join(' ');
+        if (display) consoleLog('ok', 'Result', display);
+      }
+    }
+  } catch (err) {
+    if (dataStore.connected) {
+      dataStore.connected = false;
+      consoleLog('error', 'Net', 'Connection lost: ' + err.message);
+      updateHeader(dataStore.serverInfo);
+    }
+  }
+}
+
+async function pollStatus() {
+  try {
+    const resp = await fetch(`${API_BASE}/status`);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const info = await resp.json();
+    dataStore.serverInfo = info;
+    dataStore.connected = true;
+    updateHeader(info);
+  } catch (err) {
+    // Handled in pollLatest
+  }
+}
+
+async function sendCommand(cmd) {
+  consoleLog('cmd', 'Cmd', `Sending: ${cmd}`);
+  try {
+    const resp = await fetch(`${API_BASE}/command`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ command: cmd }),
+    });
+    const result = await resp.json();
+    if (result.error) {
+      consoleLog('error', 'Cmd', result.error);
+    } else {
+      consoleLog('ok', 'Cmd', `Sent: ${result.command}`);
+    }
+  } catch (err) {
+    consoleLog('error', 'Cmd', 'Failed: ' + err.message);
+  }
+}
+
+async function loadHistory() {
+  try {
+    const resp = await fetch(`${API_BASE}/history`);
+    if (!resp.ok) return;
+    const hist = await resp.json();
+    if (Array.isArray(hist) && hist.length > 0) {
+      dataStore.history = hist;
+      clampView();
+      consoleLog('info', 'Data', `Loaded ${hist.length} historical points`);
+      requestChartRender();
+    }
+  } catch (err) {
+    // Ignore
+  }
+}
+
+/* ================================================================
+   UTILITY HELPERS
+   ================================================================ */
+function hexToRGBA(hex, alpha) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function escapeHtml(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function formatAxis(v) {
+  const abs = Math.abs(v);
+  if (abs >= 1000) return v.toFixed(0);
+  if (abs >= 10) return v.toFixed(1);
+  if (abs >= 1) return v.toFixed(2);
+  return v.toFixed(3);
+}
+
+/**
+ * Compute nice scale ticks for a given range
+ */
+function niceScale(min, max, targetTicks) {
+  const range = max - min;
+  if (range === 0) return [min];
+  const roughStep = range / targetTicks;
+  const mag = Math.pow(10, Math.floor(Math.log10(roughStep)));
+  const residual = roughStep / mag;
+  let step;
+  if (residual <= 1.5) step = mag;
+  else if (residual <= 3) step = 2 * mag;
+  else if (residual <= 7) step = 5 * mag;
+  else step = 10 * mag;
+
+  const ticks = [];
+  const start = Math.ceil(min / step) * step;
+  for (let v = start; v <= max; v += step) {
+    ticks.push(parseFloat(v.toFixed(10)));
+  }
+  return ticks;
+}
+
+/* ================================================================
+   RESIZE HANDLING
+   ================================================================ */
+let resizeTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => requestChartRender(), 50);
+});
+
+/* ================================================================
+   STARTUP
+   ================================================================ */
+document.addEventListener('DOMContentLoaded', () => {
+  initUI();
+  loadHistory();
+  // Start polling
+  pollTimer = setInterval(pollLatest, POLL_INTERVAL);
+  statusTimer = setInterval(pollStatus, 2000);
+  // Initial status check
+  pollStatus();
+});
+</script>
+</body>
+</html>
