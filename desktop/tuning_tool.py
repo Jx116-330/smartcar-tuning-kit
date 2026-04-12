@@ -18,6 +18,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
+import ttkbootstrap as ttkb
+from ttkbootstrap.constants import *
+
 # ---------------------------------------------------------------------------
 # Load user config
 # ---------------------------------------------------------------------------
@@ -63,10 +66,53 @@ HISTORY_JSONL_PATH = DATA_DIR / 'telemetry_history.jsonl'
 MAX_HISTORY = 500
 MAX_PLOT_POINTS = 120
 
+# ---------------------------------------------------------------------------
+# Glassmorphism Dark Theme
+# ---------------------------------------------------------------------------
+THEME = {
+    # Backgrounds (layered depth)
+    'bg_deep':    '#0f0f23',
+    'bg_mid':     '#1a1a2e',
+    'bg_surface': '#16213e',
+    # Glass panels
+    'glass':      '#ffffff0a',
+    'glass_hover':'#ffffff0f',
+    'glass_border':'#ffffff12',
+    # Text
+    'text':       '#e0e7ff',
+    'text_muted': '#94a3b8',
+    'text_dim':   '#475569',
+    # Accent (purple-blue)
+    'accent':     '#7c3aed',
+    'accent_light':'#a78bfa',
+    'accent_bg':  '#7c3aed33',
+    # Status
+    'ok':         '#22c55e',
+    'warn':       '#f59e0b',
+    'danger':     '#ef4444',
+    # Chart line colors
+    'ch0':        '#818cf8',
+    'ch1':        '#34d399',
+    'ch2':        '#f87171',
+    'ch3':        '#c084fc',
+    'ch4':        '#fbbf24',
+    'ch5':        '#38bdf8',
+    'ch6':        '#fb923c',
+    # Console
+    'console_bg': '#080812',
+    'console_fg': '#64748b',
+}
+CHART_COLORS = [THEME['ch0'], THEME['ch1'], THEME['ch2'], THEME['ch3'],
+                THEME['ch4'], THEME['ch5'], THEME['ch6']]
+
+# Backwards-compat alias (will be removed in later tasks)
+# NOTE: glass_border / accent_bg contain alpha and cannot be used directly
+# by classic tk widgets, so we use opaque approximations here.
 CARD_THEME = {
-    'bg': '#111827', 'panel': '#0f172a', 'border': '#1f2937',
-    'title': '#94a3b8', 'value': '#f8fafc', 'muted': '#cbd5e1',
-    'accent': '#38bdf8', 'ok': '#22c55e', 'warn': '#f59e0b', 'danger': '#ef4444',
+    'bg': THEME['bg_deep'], 'panel': THEME['bg_mid'], 'border': '#1e1e38',
+    'title': THEME['text_muted'], 'value': THEME['text'], 'muted': THEME['text_muted'],
+    'accent': THEME['accent_light'], 'ok': THEME['ok'], 'warn': THEME['warn'],
+    'danger': THEME['danger'],
 }
 
 def try_parse_number(value: str):
@@ -112,11 +158,9 @@ class TuningToolApp:
     _ALL_PREFIXES = _TELEMETRY_PREFIXES + _RESPONSE_PREFIXES
     _KEY_MAP = getattr(cfg, 'KEY_MAP', {})
 
-    def __init__(self, root: tk.Tk):
+    def __init__(self, root: ttkb.Window):
         self.root = root
-        root.title(getattr(cfg, 'APP_TITLE', 'SmartCar Tuning Tool'))
-        root.geometry('1440x850')
-        root.configure(bg=CARD_THEME['bg'])
+        root.configure(bg='#0f0f23')
 
         DATA_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -1154,6 +1198,10 @@ class TuningToolApp:
 # Entry point
 # ===========================================================================
 if __name__ == '__main__':
-    root = tk.Tk()
+    root = ttkb.Window(
+        title=getattr(cfg, 'APP_TITLE', 'SmartCar Tuning Tool'),
+        themename='darkly',
+        size=(1440, 850),
+    )
     app = TuningToolApp(root)
     root.mainloop()
