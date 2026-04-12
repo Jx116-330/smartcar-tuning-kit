@@ -18,9 +18,9 @@
 #define TK_MAX_CMD_HANDLERS     16U     /* Max registered command handlers    */
 
 /* ---------- Telemetry timing ---------- */
-#define TK_DEFAULT_PERIOD_MS    100U    /* Default telemetry send interval    */
-#define TK_MIN_PERIOD_MS        50U     /* Minimum allowed period             */
+#define TK_DEFAULT_PERIOD_MS    20U     /* Default telemetry send interval    */
+#define TK_MIN_PERIOD_MS        10U     /* Minimum allowed period             */
 #define TK_MAX_PERIOD_MS        1000U   /* Maximum allowed period             */
-#define TK_PERIOD_STEP_MS       50U     /* Period increment step              */
+#define TK_PERIOD_STEP_MS       10U     /* Period increment step              */
 
 #endif /* TUNING_KIT_CONFIG_H_ */
