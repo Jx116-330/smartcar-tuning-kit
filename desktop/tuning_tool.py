@@ -205,7 +205,7 @@ class TuningToolApp:
     # UI Construction - Minimal Connection Panel
     # ======================================================================
     def _build_ui(self):
-        self.root.geometry('400x500')
+        self.root.geometry('400x680')
         self.root.resizable(False, False)
 
         main = tk.Frame(self.root, bg=THEME['bg_mid'], padx=16, pady=12)
@@ -876,7 +876,7 @@ if __name__ == '__main__':
     root = ttkb.Window(
         title=getattr(cfg, 'APP_TITLE', 'SmartCar Tuning Tool'),
         themename='darkly',
-        size=(400, 500),
+        size=(400, 680),
     )
     app = TuningToolApp(root)
     root.mainloop()
