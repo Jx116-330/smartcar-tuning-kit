@@ -74,10 +74,10 @@ THEME = {
     'bg_deep':    '#0f0f23',
     'bg_mid':     '#1a1a2e',
     'bg_surface': '#16213e',
-    # Glass panels
-    'glass':      '#ffffff0a',
-    'glass_hover':'#ffffff0f',
-    'glass_border':'#ffffff12',
+    # Glass panels (opaque approximations for tkinter compatibility)
+    'glass':      '#1b1b30',
+    'glass_hover':'#22223a',
+    'glass_border':'#2a2a45',
     # Text
     'text':       '#e0e7ff',
     'text_muted': '#94a3b8',
@@ -85,7 +85,7 @@ THEME = {
     # Accent (purple-blue)
     'accent':     '#7c3aed',
     'accent_light':'#a78bfa',
-    'accent_bg':  '#7c3aed33',
+    'accent_bg':  '#2d1a5e',
     # Status
     'ok':         '#22c55e',
     'warn':       '#f59e0b',
@@ -209,6 +209,7 @@ class TuningToolApp:
         self.zoom_auto_follow = True
         self.zoom_drag_start = None
         self.chart_crosshair_x = None
+        self._minimap_drag_x = None
 
         # Sparkline
         self.sparkline_data = {k: [] for k, _ in getattr(cfg, 'PRIMARY_METRICS', [])}
@@ -579,7 +580,9 @@ class TuningToolApp:
         canvas.configure(yscrollcommand=scrollbar.set)
         canvas.pack(side='left', fill='both', expand=True)
         scrollbar.pack(side='right', fill='y')
-        canvas.bind_all('<MouseWheel>', lambda e: canvas.yview_scroll(-1 * (e.delta // 120), 'units'))
+        canvas.bind('<Enter>', lambda e: canvas.bind_all('<MouseWheel>',
+                    lambda ev: canvas.yview_scroll(-1 * (ev.delta // 120), 'units')))
+        canvas.bind('<Leave>', lambda e: canvas.unbind_all('<MouseWheel>'))
 
         for i, (key, label) in enumerate(getattr(cfg, 'EXTENDED_METRICS', [])):
             r, c = divmod(i, 2)
@@ -1037,11 +1040,10 @@ class TuningToolApp:
 
         # Auto-follow logic for zoom
         if self.zoom_auto_follow and self.zoom_view_count > 0:
-            for key, _, _ in getattr(cfg, 'PLOT_KEYS', []):
-                total = len(self.plot_series.get(key, []))
-                if total > self.zoom_view_count:
-                    self.zoom_view_start = total - self.zoom_view_count
-                break
+            max_len = max((len(self.plot_series.get(k, []))
+                           for k, _, _ in getattr(cfg, 'PLOT_KEYS', [])), default=0)
+            if max_len > self.zoom_view_count:
+                self.zoom_view_start = max_len - self.zoom_view_count
 
         # Async file writes
         _file_writer.write(LATEST_TEXT_PATH, text)
