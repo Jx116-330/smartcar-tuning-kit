@@ -269,9 +269,8 @@ class TuningToolApp:
 
     # --- Top Metrics Bar ---
     def _build_top_bar(self, parent):
-        bar = tk.Frame(parent, bg=THEME['bg_mid'], height=80)
+        bar = tk.Frame(parent, bg=THEME['bg_mid'])
         bar.pack(fill='x', padx=0, pady=0)
-        bar.pack_propagate(False)
 
         inner = tk.Frame(bar, bg=THEME['bg_mid'])
         inner.pack(fill='both', expand=True, padx=8, pady=6)
@@ -285,7 +284,7 @@ class TuningToolApp:
     def _build_metric_card(self, parent, key, label, index):
         card_bg = '#1c2640'
         card = tk.Frame(parent, bg=card_bg, highlightbackground='#2a3555',
-                         highlightthickness=1, padx=8, pady=4)
+                         highlightthickness=1, padx=10, pady=6)
         card.grid(row=0, column=index, padx=4, pady=2, sticky='nsew')
 
         # Accent line at top — use channel-specific color
@@ -315,7 +314,7 @@ class TuningToolApp:
         # Sparkline canvas — store channel color alongside canvas
         line_color = plot_keys[index][1] if index < len(plot_keys) else THEME['accent_light']
         spark_canvas = tk.Canvas(card, bg=card_bg, highlightthickness=0,
-                                  width=80, height=18)
+                                  height=28)
         spark_canvas.pack(fill='x', pady=(2, 0))
         self._sparkline_canvases[key] = (spark_canvas, line_color)
 
