@@ -936,13 +936,13 @@ html, body {
 /* ================================================================
    DATA LAYER
    ================================================================ */
-const API_BASE = 'http://127.0.0.1:9898';
+const API_BASE = `${window.location.protocol}//${window.location.host}`;
 const POLL_INTERVAL = 16;  // ~60fps polling
 const MAX_DATA_POINTS = 10000;
 const MAX_CONSOLE_LINES = 200;
 
-// Channel definitions — iOS vibrant colors
-const CHANNELS = [
+// Channel definitions — defaults, overridden by /config at startup
+let CHANNELS = [
   { key: 'gx',   label: 'GX',   color: '#5e5ce6', visible: true },
   { key: 'gy',   label: 'GY',   color: '#30d158', visible: true },
   { key: 'gz',   label: 'GZ',   color: '#ff453a', visible: true },
@@ -950,10 +950,10 @@ const CHANNELS = [
 ];
 
 // Primary metric keys (top cards, first 4 channels)
-const PRIMARY_METRICS = ['gx', 'gy', 'gz', 'gxyz'];
+let PRIMARY_METRICS = ['gx', 'gy', 'gz', 'gxyz'];
 
 // Detail metrics grouped — Telemetry tab
-const DETAIL_GROUPS = [
+let DETAIL_GROUPS = [
   {
     title: 'Attitude',
     fields: [
@@ -1010,6 +1010,56 @@ const view = {
 
 // Minimap drag state
 const mmDrag = { active: false, startX: 0, startView: 0 };
+
+/* ================================================================
+   LOAD CONFIG FROM SERVER
+   ================================================================ */
+async function loadConfig() {
+  try {
+    const resp = await fetch(`${API_BASE}/config`);
+    if (!resp.ok) return;
+    const cfg = await resp.json();
+
+    // Override channels
+    if (cfg.plot_channels && cfg.plot_channels.length) {
+      CHANNELS = cfg.plot_channels.map(ch => ({
+        key: ch.key,
+        label: ch.label || ch.key.toUpperCase(),
+        color: ch.color,
+        visible: ch.visible !== false,
+      }));
+    }
+
+    // Override primary metrics
+    if (cfg.primary_metrics && cfg.primary_metrics.length) {
+      PRIMARY_METRICS = cfg.primary_metrics.map(m => m.key);
+    }
+
+    // Override detail groups from detail + extended metrics
+    if (cfg.detail_metrics || cfg.extended_metrics) {
+      DETAIL_GROUPS = [];
+      if (cfg.detail_metrics && cfg.detail_metrics.length) {
+        DETAIL_GROUPS.push({
+          title: 'Detail',
+          fields: cfg.detail_metrics.map(m => ({ key: m.key, label: m.label })),
+        });
+      }
+      if (cfg.extended_metrics && cfg.extended_metrics.length) {
+        DETAIL_GROUPS.push({
+          title: 'Extended',
+          fields: cfg.extended_metrics.map(m => ({ key: m.key, label: m.label })),
+        });
+      }
+    }
+
+    // Update page title
+    if (cfg.app_title) {
+      document.title = cfg.app_title;
+    }
+  } catch (e) {
+    consoleLog('warn', 'Config', 'Using built-in defaults');
+  }
+}
 
 /* ================================================================
    UI INITIALIZATION
@@ -2162,7 +2212,8 @@ window.addEventListener('resize', () => {
 /* ================================================================
    STARTUP
    ================================================================ */
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadConfig();
   initUI();
   loadHistory();
   pollTimer = setInterval(pollLatest, POLL_INTERVAL);

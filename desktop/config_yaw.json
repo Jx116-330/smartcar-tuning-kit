@@ -1,0 +1,130 @@
+{
+  "app_title": "SmartCar Yaw Tuning Tool",
+
+  "network": {
+    "http_host": "127.0.0.1",
+    "http_port": 9898
+  },
+
+  "protocol": {
+    "telemetry_prefixes": ["TEL", "TELG", "TELA", "TELY"],
+    "response_prefixes": ["ACK", "ERR", "YAWCAL", "YAWTEST"],
+    "key_map": {
+      "gzr": "gz_raw",   "gzb": "gz_bias",  "gzc": "gz_comp",
+      "gzs": "gz_scale", "gzd": "gz_scaled",
+      "yi": "yaw_int",   "yf": "yaw_final",  "yc": "yaw_corr",
+      "dt": "dt_us",     "dbg": "yaw_dbg",   "ver": "yaw_param_ver",
+      "ton": "yaw_test_on",  "tst": "yaw_test_start", "tdl": "yaw_test_last_delta",
+      "zb": "yaw_zero_busy", "zok": "yaw_zero_ok",
+      "zn": "yaw_zero_n",    "zgz": "yaw_zero_gbz"
+    }
+  },
+
+  "ui": {
+    "plot_channels": [
+      {"key": "gx",        "color": "#4fc3f7", "visible": true},
+      {"key": "gy",        "color": "#81c784", "visible": true},
+      {"key": "gz",        "color": "#e57373", "visible": true},
+      {"key": "gxyz",      "color": "#ba68c8", "visible": true},
+      {"key": "gz_comp",   "color": "#ffd54f", "visible": false},
+      {"key": "gz_scaled", "color": "#ff8a65", "visible": false},
+      {"key": "yaw_final", "color": "#ce93d8", "visible": false}
+    ],
+    "primary_metrics": [
+      {"key": "gx",   "label": "GX"},
+      {"key": "gy",   "label": "GY"},
+      {"key": "gz",   "label": "GZ"},
+      {"key": "gxyz", "label": "GXYZ"}
+    ],
+    "detail_metrics": [
+      {"key": "roll",     "label": "ROLL"},
+      {"key": "pitch",    "label": "PITCH"},
+      {"key": "yaw",      "label": "YAW"},
+      {"key": "anorm",    "label": "ANORM"},
+      {"key": "bias_ok",  "label": "BIAS_OK"},
+      {"key": "bias_cal", "label": "BIAS_CAL"},
+      {"key": "bias_n",   "label": "BIAS_N"},
+      {"key": "bias_t",   "label": "BIAS_T"}
+    ],
+    "extended_metrics": [
+      {"key": "gcx",        "label": "GCX"},
+      {"key": "gcy",        "label": "GCY"},
+      {"key": "gcz",        "label": "GCZ"},
+      {"key": "gbx",        "label": "GBX"},
+      {"key": "gby",        "label": "GBY"},
+      {"key": "gbz",        "label": "GBZ"},
+      {"key": "bias_flash", "label": "FLASH"},
+      {"key": "q0",         "label": "Q0"},
+      {"key": "q1",         "label": "Q1"},
+      {"key": "q2",         "label": "Q2"},
+      {"key": "q3",         "label": "Q3"},
+      {"key": "ax",         "label": "AX"},
+      {"key": "ay",         "label": "AY"},
+      {"key": "az",         "label": "AZ"},
+      {"key": "anorm",      "label": "ANORM"},
+      {"key": "att_upd",    "label": "ATT_UPD"}
+    ],
+    "accent_color": null,
+    "max_plot_points": 2000
+  },
+
+  "commands": {
+    "quick_commands": [
+      {"label": "GET PID",  "command": "GET PID"},
+      {"label": "SAVE PID", "command": "SAVE PID"},
+      {"label": "GET YAW",  "command": "GET YAW"}
+    ],
+    "custom_tabs": [
+      {
+        "name": "Yaw Status",
+        "fields": [
+          {"key": "gz_raw",            "label": "GZ_RAW"},
+          {"key": "gz_bias",           "label": "GZ_BIAS"},
+          {"key": "gz_comp",           "label": "GZ_COMP"},
+          {"key": "gz_scale",          "label": "GZ_SCALE"},
+          {"key": "gz_scaled",         "label": "GZ_SCALED"},
+          {"key": "yaw_int",           "label": "YAW_INT"},
+          {"key": "yaw_final",         "label": "YAW_FINAL"},
+          {"key": "yaw_corr",          "label": "YAW_CORR"},
+          {"key": "dt_us",             "label": "DT_US"},
+          {"key": "yaw_param_ver",     "label": "PARAM_VER"},
+          {"key": "yaw_test_on",       "label": "TEST_ON"},
+          {"key": "yaw_test_start",    "label": "TEST_START"},
+          {"key": "yaw_test_last_delta", "label": "TEST_DELTA"},
+          {"key": "yaw_zero_busy",     "label": "ZERO_BUSY"},
+          {"key": "yaw_zero_ok",       "label": "ZERO_OK"},
+          {"key": "yaw_zero_n",        "label": "ZERO_N"},
+          {"key": "yaw_zero_gbz",      "label": "ZERO_GBZ"}
+        ],
+        "result_keys": [
+          {"prefix": "ACK",     "var_key": "yaw_last_ack"},
+          {"prefix": "YAWCAL",  "var_key": "yaw_last_cal"},
+          {"prefix": "YAWTEST", "var_key": "yaw_last_test"}
+        ]
+      }
+    ],
+    "command_tabs": [
+      {
+        "name": "Yaw Cmds",
+        "buttons": [
+          {"label": "GET YAW",         "command": "GET YAW"},
+          {"label": "YAW ZERO (1s)",   "command": "YAW ZERO"},
+          {"label": "YAW TEST START",  "command": "YAW TEST START"},
+          {"label": "YAW TEST STOP",   "command": "YAW TEST STOP"},
+          {"label": "YAW ZERO STATUS", "command": "YAW ZERO STATUS"}
+        ],
+        "params": [
+          {"label": "YAW_BIAS (dps)", "prefix": "SET YAW_BIAS"},
+          {"label": "YAW_SCALE",      "prefix": "SET YAW_SCALE"}
+        ]
+      }
+    ]
+  },
+
+  "simulation": {
+    "enabled": true,
+    "prefix": "TELG"
+  },
+
+  "custom_state_file": "latest_yaw_state.json"
+}
