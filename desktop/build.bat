@@ -1,13 +1,27 @@
 @echo off
+cd /d "%~dp0"
+
 echo ============================================
 echo   SmartCar Tuning Tool - Build
 echo ============================================
 echo.
 
-pip install pyinstaller ttkbootstrap >nul 2>&1
+echo [0/2] Installing dependencies ...
+pip install pyinstaller ttkbootstrap
+if errorlevel 1 (
+    echo.
+    echo ERROR: pip install failed. Make sure Python and pip are in PATH.
+    pause & exit /b 1
+)
 
+echo.
 echo [1/2] Building exe ...
 pyinstaller --clean smartcar.spec
+if errorlevel 1 (
+    echo.
+    echo ERROR: PyInstaller build failed. See output above.
+    pause & exit /b 1
+)
 
 echo.
 echo [2/2] Copying config template ...

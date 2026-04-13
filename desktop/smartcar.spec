@@ -19,7 +19,7 @@ a = Analysis(
         ('dashboard.html', '.'),   # bundled inside exe, accessed via resource_path()
         *ttkb_datas,
     ],
-    hiddenimports=['ttkbootstrap'],
+    hiddenimports=['ttkbootstrap', 'config_loader'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
