@@ -5,6 +5,8 @@ Loads UI configuration from config.json (portable/exe mode) or falls back
 to the legacy tuning_config.py module (development mode).
 Provides resource_path() and app_dir() for PyInstaller compatibility.
 """
+from __future__ import annotations
+
 import json
 import math
 import sys
