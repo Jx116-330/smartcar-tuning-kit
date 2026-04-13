@@ -7,16 +7,16 @@ echo ============================================
 echo.
 
 echo [0/2] Installing dependencies ...
-pip install pyinstaller ttkbootstrap
+python -m pip install pyinstaller ttkbootstrap
 if errorlevel 1 (
     echo.
-    echo ERROR: pip install failed. Make sure Python and pip are in PATH.
+    echo ERROR: pip install failed. Make sure Python is in PATH.
     pause & exit /b 1
 )
 
 echo.
 echo [1/2] Building exe ...
-pyinstaller --clean smartcar.spec
+python -m PyInstaller --clean smartcar.spec
 if errorlevel 1 (
     echo.
     echo ERROR: PyInstaller build failed. See output above.

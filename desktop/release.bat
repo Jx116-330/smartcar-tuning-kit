@@ -12,7 +12,7 @@ echo.
 
 :: Build exe
 echo [1/3] Building exe ...
-call build.bat >nul 2>&1
+call build.bat
 if not exist "dist\SmartCarTuningTool.exe" (
     echo ERROR: Build failed. Run build.bat manually to see errors.
     pause & exit /b 1
