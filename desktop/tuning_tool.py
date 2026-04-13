@@ -2,7 +2,7 @@
 """
 SmartCar Tuning Tool - Config-driven desktop tuning GUI.
 
-All domain-specific knowledge lives in tuning_config.py.
+All domain-specific knowledge lives in config.json (or tuning_config.py for dev).
 This file is the generic framework: TCP, HTTP, minimal connection panel.
 Data visualization is handled by the web dashboard (dashboard.html).
 You should NOT need to edit this file for normal use.
@@ -14,8 +14,10 @@ import socket
 import threading
 import time
 import tkinter as tk
+import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from tkinter import messagebox
 
 import ttkbootstrap as ttkb
 from ttkbootstrap.constants import *
@@ -23,7 +25,7 @@ from ttkbootstrap.constants import *
 # ---------------------------------------------------------------------------
 # Load user config
 # ---------------------------------------------------------------------------
-import tuning_config as cfg
+from config_loader import cfg, resource_path, app_dir
 
 # ---------------------------------------------------------------------------
 # Async file writer (non-blocking disk I/O)
@@ -58,7 +60,7 @@ _file_writer = _AsyncFileWriter()
 # Constants
 # ---------------------------------------------------------------------------
 ENCODING = 'utf-8'
-DATA_DIR = Path(__file__).resolve().parent / 'runtime'
+DATA_DIR = app_dir() / 'runtime'
 LATEST_TEXT_PATH = DATA_DIR / 'latest_telemetry.txt'
 LATEST_JSON_PATH = DATA_DIR / 'latest_telemetry.json'
 HISTORY_JSONL_PATH = DATA_DIR / 'telemetry_history.jsonl'
@@ -101,6 +103,10 @@ THEME = {
     'console_bg': '#080812',
     'console_fg': '#64748b',
 }
+_accent = getattr(cfg, 'ACCENT_COLOR', None)
+if _accent:
+    THEME['accent'] = _accent
+
 CHART_COLORS = [THEME['ch0'], THEME['ch1'], THEME['ch2'], THEME['ch3'],
                 THEME['ch4'], THEME['ch5'], THEME['ch6']]
 
@@ -212,11 +218,15 @@ class TuningToolApp:
         main.pack(fill='both', expand=True)
 
         # Title
-        tk.Label(main, text='SmartCar Tuning Tool', bg=THEME['bg_mid'],
-                 fg=THEME['accent_light'], font=('Segoe UI', 14, 'bold')).pack(anchor='w')
-        tk.Label(main, text='Dashboard: http://127.0.0.1:' + str(getattr(cfg, 'HTTP_PORT', 9898)),
-                 bg=THEME['bg_mid'], fg=THEME['text_muted'], font=('Segoe UI', 9),
-                 cursor='hand2').pack(anchor='w', pady=(0, 10))
+        tk.Label(main, text=getattr(cfg, 'APP_TITLE', 'SmartCar Tuning Tool'),
+                 bg=THEME['bg_mid'], fg=THEME['accent_light'],
+                 font=('Segoe UI', 14, 'bold')).pack(anchor='w')
+        _dashboard_url = f"http://{getattr(cfg, 'HTTP_HOST', '127.0.0.1')}:{getattr(cfg, 'HTTP_PORT', 9898)}"
+        _url_lbl = tk.Label(main, text=f'Dashboard: {_dashboard_url}',
+                            bg=THEME['bg_mid'], fg=THEME['accent_light'], font=('Segoe UI', 9),
+                            cursor='hand2')
+        _url_lbl.pack(anchor='w', pady=(0, 10))
+        _url_lbl.bind('<Button-1>', lambda e: webbrowser.open(_dashboard_url))
 
         # Connection settings
         conn = tk.LabelFrame(main, text='Connection', bg=THEME['bg_mid'],
@@ -263,7 +273,7 @@ class TuningToolApp:
         self.conn_listbox.pack(fill='x', padx=8, pady=(4, 8))
 
         # Simulation
-        if hasattr(cfg, 'build_simulated_packet') and cfg.build_simulated_packet is not None:
+        if getattr(cfg, 'SIMULATION_ENABLED', hasattr(cfg, 'build_simulated_packet')):
             sim = tk.LabelFrame(main, text='Simulation', bg=THEME['bg_mid'],
                                  fg=THEME['text_muted'], font=('Segoe UI', 10, 'bold'))
             sim.pack(fill='x', pady=(0, 8))
@@ -564,7 +574,7 @@ class TuningToolApp:
             def do_GET(self):
                 path = self.path.split('?')[0].rstrip('/')
                 if path == '' or path == '/dashboard':
-                    dashboard = Path(__file__).resolve().parent / 'dashboard.html'
+                    dashboard = resource_path('dashboard.html')
                     self._serve_file(str(dashboard), 'text/html; charset=utf-8')
                 elif path == '/latest':
                     with app.telemetry_lock:
@@ -586,6 +596,22 @@ class TuningToolApp:
                     with app.telemetry_lock:
                         history = list(app.telemetry_history[-100:])
                     self._json_response(history)
+                elif path == '/config':
+                    if hasattr(cfg, 'to_http_config'):
+                        self._json_response(cfg.to_http_config())
+                    else:
+                        self._json_response({
+                            'app_title': getattr(cfg, 'APP_TITLE', 'SmartCar Tuning Tool'),
+                            'plot_channels': [{'key': k, 'color': c, 'visible': v}
+                                              for k, c, v in getattr(cfg, 'PLOT_KEYS', [])],
+                            'primary_metrics': [{'key': k, 'label': l}
+                                                for k, l in getattr(cfg, 'PRIMARY_METRICS', [])],
+                            'detail_metrics': [{'key': k, 'label': l}
+                                               for k, l in getattr(cfg, 'DETAIL_METRICS', [])],
+                            'extended_metrics': [{'key': k, 'label': l}
+                                                 for k, l in getattr(cfg, 'EXTENDED_METRICS', [])],
+                            'quick_commands': getattr(cfg, 'QUICK_COMMANDS', []),
+                        })
                 elif path == '/status':
                     self._json_response({
                         'running': app.running,
@@ -619,8 +645,17 @@ class TuningToolApp:
             self.http_server = ThreadingHTTPServer((host, port), Handler)
             t = threading.Thread(target=self.http_server.serve_forever, daemon=True, name='http')
             t.start()
-        except Exception:
+            if getattr(cfg, 'AUTO_OPEN_BROWSER', False):
+                self.root.after(800, lambda: webbrowser.open(f'http://{host}:{port}'))
+        except OSError as e:
             self.http_server = None
+            self.queue_log('log', f'[HTTP] Port {port} unavailable: {e}. Dashboard disabled.')
+            messagebox.showwarning(
+                'Dashboard Unavailable',
+                f'Could not start HTTP server on port {port}.\n'
+                f'Another program may be using it.\n\n'
+                f'Change "http_port" in config.json and restart.'
+            )
 
     # ======================================================================
     # TCP Server / Client

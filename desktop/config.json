@@ -1,0 +1,77 @@
+{
+  "app_title": "SmartCar Tuning Tool",
+
+  "network": {
+    "http_host": "127.0.0.1",
+    "http_port": 9898
+  },
+
+  "protocol": {
+    "telemetry_prefixes": ["TEL", "TELG", "TELA"],
+    "response_prefixes": ["ACK", "ERR"],
+    "key_map": {}
+  },
+
+  "ui": {
+    "plot_channels": [
+      {"key": "gx",   "color": "#4fc3f7", "visible": true},
+      {"key": "gy",   "color": "#81c784", "visible": true},
+      {"key": "gz",   "color": "#e57373", "visible": true},
+      {"key": "gxyz", "color": "#ba68c8", "visible": true}
+    ],
+    "primary_metrics": [
+      {"key": "gx",   "label": "GX"},
+      {"key": "gy",   "label": "GY"},
+      {"key": "gz",   "label": "GZ"},
+      {"key": "gxyz", "label": "GXYZ"}
+    ],
+    "detail_metrics": [
+      {"key": "roll",     "label": "ROLL"},
+      {"key": "pitch",    "label": "PITCH"},
+      {"key": "yaw",      "label": "YAW"},
+      {"key": "anorm",    "label": "ANORM"},
+      {"key": "bias_ok",  "label": "BIAS_OK"},
+      {"key": "bias_cal", "label": "BIAS_CAL"},
+      {"key": "bias_n",   "label": "BIAS_N"},
+      {"key": "bias_t",   "label": "BIAS_T"}
+    ],
+    "extended_metrics": [
+      {"key": "gcx",        "label": "GCX"},
+      {"key": "gcy",        "label": "GCY"},
+      {"key": "gcz",        "label": "GCZ"},
+      {"key": "gbx",        "label": "GBX"},
+      {"key": "gby",        "label": "GBY"},
+      {"key": "gbz",        "label": "GBZ"},
+      {"key": "bias_flash", "label": "FLASH"},
+      {"key": "q0",         "label": "Q0"},
+      {"key": "q1",         "label": "Q1"},
+      {"key": "q2",         "label": "Q2"},
+      {"key": "q3",         "label": "Q3"},
+      {"key": "ax",         "label": "AX"},
+      {"key": "ay",         "label": "AY"},
+      {"key": "az",         "label": "AZ"},
+      {"key": "anorm",      "label": "ANORM"},
+      {"key": "att_upd",    "label": "ATT_UPD"}
+    ],
+    "accent_color": null,
+    "max_plot_points": 2000
+  },
+
+  "commands": {
+    "quick_commands": [
+      {"label": "GET PID",  "command": "GET PID"},
+      {"label": "SAVE PID", "command": "SAVE PID"}
+    ],
+    "custom_tabs": [],
+    "command_tabs": []
+  },
+
+  "simulation": {
+    "enabled": true,
+    "prefix": "TELG"
+  },
+
+  "custom_state_file": null,
+
+  "auto_open_browser": false
+}
