@@ -1,0 +1,10 @@
+{
+  "_comment": "virtual profile 的评分占位(P0)。⚠ 当前 session_driver 的 metrics 提取器 report_metrics 仍是原车语义(m_eng/m_idx 等),virtual 设备(ctl/params/stats 通道)尚无配套提取器 —— 异构对象 #2 的 metrics 提取器 profile 化是下一期工作。本文件存在意义:(1) 护栏/回滚的 score_min 阈值与评分链对齐的锚点;(2) --profile virtual 时 find_profile 决议路径可走通。",
+  "profile_version": 1,
+  "missing_metric": "fail",
+  "metrics": [
+    {"key": "err_rms",  "weight": 0.5, "direction": "lower", "ref": 5.0, "pass_max": 10.0},
+    {"key": "duty_sat", "weight": 0.3, "direction": "lower", "ref": 30.0},
+    {"key": "settle_s",  "weight": 0.2, "direction": "lower", "ref": 2.0}
+  ]
+}

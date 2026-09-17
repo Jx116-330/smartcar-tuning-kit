@@ -1,2225 +1,2423 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SmartCar Tuning Tool</title>
+<title>SmartCar · Tuning · Cyberpunk HUD</title>
+<!-- 2026-06-10:删掉 Google Fonts 外链——render-blocking 样式表在访问不到
+     fonts.googleapis.com 的网络环境(国内)把首屏渲染卡住 30s+。本地字体栈顶上。 -->
 <style>
 /* ============================================================
-   CSS Custom Properties — Deep Blue + iOS Polish
+   PIT-WALL — SmartCar tuning dashboard, 2026-06-10 redesign
+   方向:赛车 pit-wall 仪表。信息密度优先,零装饰性辉光。
+   字体:Bahnschrift(Windows 自带 DIN)+ Cascadia/Consolas。
+   信号色:琥珀橙 = live 数据;绿/红严格留给状态语义。
    ============================================================ */
 :root {
-  /* Background layers — deep blue spectrum */
-  --bg-primary: #0e1525;
-  --bg-secondary: #162038;
-  --bg-tertiary: #1e2d4a;
-  --bg-elevated: #253758;
-  --bg-card: linear-gradient(145deg, #192844, #14203a);
-
-  /* Glass fills */
-  --fill-primary: rgba(255,255,255,0.08);
-  --fill-secondary: rgba(255,255,255,0.06);
-  --fill-tertiary: rgba(255,255,255,0.04);
-  --fill-quaternary: rgba(255,255,255,0.025);
-
-  /* Separators */
-  --separator: rgba(255,255,255,0.08);
-
-  /* Text */
-  --text-primary: #eef2ff;
-  --text-secondary: #94a3c0;
-  --text-tertiary: #556b8a;
-  --text-quaternary: #384d6d;
-
-  /* iOS System Colors */
-  --ios-blue: #0a84ff;
-  --ios-green: #30d158;
-  --ios-orange: #ff9f0a;
-  --ios-red: #ff453a;
-  --ios-teal: #64d2ff;
-  --ios-indigo: #5e5ce6;
-  --ios-purple: #bf5af2;
-  --ios-pink: #ff375f;
-
-  /* Accent */
-  --accent: var(--ios-blue);
-  --accent-dim: rgba(10,132,255,0.15);
-
-  /* Typography — system stack */
-  --font-display: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', 'Segoe UI', system-ui, sans-serif;
-  --font-body: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', 'Segoe UI', system-ui, sans-serif;
-  --font-mono: 'SF Mono', ui-monospace, 'Cascadia Code', 'Menlo', 'Consolas', monospace;
-
-  /* Sizing */
-  --header-h: 54px;
-  --metrics-h: 130px;
-  --console-h: 110px;
-  --radius: 12px;
-  --radius-lg: 14px;
-
-  /* Shared easing */
-  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
-  --ease-smooth: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  color-scheme: dark;
+  --bg-0:      #0e1218;
+  --bg-1:      #12171f;
+  --bg-2:      #161d27;
+  --bg-3:      #1b2330;
+  --line:      #232c3a;
+  --line-2:    #2e3950;
+  --ink:       #dde6f2;
+  --ink-dim:   #8b9bb4;
+  --ink-mute:  #586780;
+  --amber:     #ffb454;   /* live 信号色 */
+  --amber-dim: #b97f33;
+  --green:     #58c47c;
+  --red:       #ff4d5e;
+  --steel:     #5b9dd9;
+  --violet:    #a883e8;
+  --rose:      #e0708f;
+  --teal:      #46c2a5;
+  --f-disp: 'Bahnschrift SemiCondensed', 'Bahnschrift', 'Segoe UI', 'Microsoft YaHei UI', sans-serif;
+  --f-mono: 'Cascadia Code', 'Consolas', ui-monospace, monospace;
 }
 
-/* ============================================================
-   Reset & Base
-   ============================================================ */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body {
-  height: 100%;
-  overflow: hidden;
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  font-family: var(--font-body);
-  font-size: 13px;
-  -webkit-font-smoothing: antialiased;
+  height: 100%; overflow: hidden;
+  font-family: var(--f-disp); color: var(--ink);
+  background:
+    radial-gradient(1100px 500px at 75% -10%, rgba(91, 157, 217, 0.05), transparent 60%),
+    radial-gradient(900px 600px at -10% 110%, rgba(255, 180, 84, 0.04), transparent 55%),
+    linear-gradient(180deg, var(--bg-1), var(--bg-0));
+}
+/* 细噪点,给平面一点物理质感 */
+body::before {
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: 0.5;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.04 0'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
-/* Thin scrollbar */
-::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.10); border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.18); }
+::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 4px; border: 2px solid var(--bg-1); }
+::-webkit-scrollbar-thumb:hover { background: var(--ink-mute); }
 
-/* ============================================================
-   Layout Grid
-   ============================================================ */
-#app {
+#hud-app {
+  position: relative; z-index: 1;
   display: grid;
-  grid-template-rows: var(--header-h) var(--metrics-h) 1fr var(--console-h);
-  grid-template-columns: 1fr 350px;
+  grid-template-rows: 56px minmax(0, 1fr) 118px;
+  grid-template-columns: minmax(0, 1fr) 324px;
   height: 100vh;
-  gap: 0;
-  background: var(--bg-primary);
 }
 
-/* ============================================================
-   Header — Frosted Bar
-   ============================================================ */
-#header {
-  grid-column: 1 / -1;
-  display: flex;
-  align-items: center;
-  padding: 0 24px;
-  background: linear-gradient(180deg, rgba(22,32,56,0.95), rgba(14,21,37,0.9));
-  backdrop-filter: saturate(180%) blur(20px);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
-  border-bottom: 1px solid rgba(255,255,255,0.06);
-  z-index: 10;
+/* 面板入场:克制的一次性上浮 */
+@keyframes panel-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+#hud-header, #hud-chart-wrap, #hud-right, #hud-console-wrap {
+  animation: panel-in 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+#hud-chart-wrap { animation-delay: 0.06s; }
+#hud-right { animation-delay: 0.12s; }
+#hud-console-wrap { animation-delay: 0.18s; }
+
+/* ================= HEADER ================= */
+#hud-header {
+  grid-column: 1 / -1; position: relative;
+  display: flex; align-items: center; gap: 24px; padding: 0 18px;
+  background: linear-gradient(180deg, var(--bg-3), var(--bg-2));
+  border-bottom: 1px solid var(--line-2);
+}
+.brand { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.brand-mark { color: var(--amber); font-size: 15px; letter-spacing: -2px; }
+.brand-name {
+  font-weight: 700; font-size: 16px; letter-spacing: 2.5px; white-space: nowrap;
+  font-family: var(--f-disp); text-transform: uppercase;
+}
+.brand-name em { font-style: normal; color: var(--amber); }
+.brand-tag {
+  font-family: var(--f-mono); font-size: 9px; color: var(--ink-mute);
+  letter-spacing: 1.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
-#header .logo {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 16px;
-  letter-spacing: 0.5px;
-  background: linear-gradient(135deg, #64b5f6, #7c4dff, #e040fb);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+.status-cluster { margin-left: auto; display: flex; align-items: stretch; gap: 1px;
+  background: var(--line); border: 1px solid var(--line); border-radius: 3px; overflow: hidden; }
+.st-chip {
+  display: flex; align-items: center; gap: 7px; padding: 6px 13px;
+  background: var(--bg-1); font-family: var(--f-mono); font-size: 10.5px;
+  letter-spacing: 0.8px; color: var(--ink-dim); font-variant-numeric: tabular-nums;
 }
+.st-chip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-mute); transition: background 0.3s; }
+.st-chip .dot.up { background: var(--green); animation: dot-pulse 2.2s ease-in-out infinite; }
+.st-chip .dot.down { background: var(--red); }
+@keyframes dot-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.45; } }
+.st-chip .heart { color: var(--ink-mute); font-size: 8px; }
+.hud-hb { /* JS 切这个类:degraded / lost */ }
+.hud-hb.degraded { color: var(--amber); }
+.hud-hb.degraded .heart { color: var(--amber); }
+.hud-hb.lost { color: var(--red); }
+.hud-hb.lost .heart { color: var(--red); animation: dot-pulse 0.8s ease-in-out infinite; }
 
-#header .spacer { flex: 1; }
+.header-actions { display: flex; align-items: center; gap: 10px; }
+.test-btn {
+  background: transparent; border: 1px dashed var(--line-2); color: var(--ink-mute);
+  padding: 6px 12px; font-family: var(--f-mono); font-size: 9.5px; letter-spacing: 1px;
+  border-radius: 3px; cursor: pointer; transition: all 0.15s;
+}
+.test-btn:hover { color: var(--violet); border-color: var(--violet); }
+.test-btn.active { background: var(--red); border-style: solid; border-color: var(--red); color: #fff; }
 
-.status-group {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+.stop-header {
+  background: rgba(255, 77, 94, 0.08); border: 1.5px solid var(--red); color: var(--red);
+  padding: 8px 20px; font-family: var(--f-disp); font-weight: 700; font-size: 13px;
+  letter-spacing: 2.5px; border-radius: 3px; cursor: pointer; transition: all 0.15s;
 }
+.stop-header:hover { background: rgba(255, 77, 94, 0.22); }
+.stop-header.armed { background: var(--red); color: #fff; animation: stop-pulse 1.2s ease-in-out infinite; }
 
-.status-dot {
-  width: 8px; height: 8px;
-  border-radius: 50%;
-  background: var(--text-quaternary);
-  transition: all 0.4s var(--ease-smooth);
-}
-.status-dot.connected {
-  background: var(--ios-green);
-  box-shadow: 0 0 6px rgba(48,209,88,0.5), 0 0 16px rgba(48,209,88,0.2);
-  animation: pulse-glow 2s ease-in-out infinite;
-}
-.status-dot.warning {
-  background: var(--ios-orange);
-  box-shadow: 0 0 8px rgba(255,159,10,0.5);
-}
-.status-dot.error { background: var(--ios-red); }
-
-@keyframes pulse-glow {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.7; transform: scale(1.2); }
-}
-
-.badge {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 600;
-  padding: 4px 12px;
-  border-radius: 20px;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.06);
-  color: var(--text-secondary);
-}
-
-.badge-accent {
-  background: rgba(10,132,255,0.12);
-  border-color: rgba(10,132,255,0.2);
-  color: var(--ios-blue);
-}
-
-/* ============================================================
-   Metrics Bar — Glowing Cards
-   ============================================================ */
-#metrics-bar {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-  padding: 12px 24px;
-  background: var(--bg-primary);
-}
-
-.metric-card {
-  background: var(--bg-card);
-  border: 1px solid rgba(255,255,255,0.06);
-  border-radius: var(--radius-lg);
-  padding: 14px 18px;
-  position: relative;
-  overflow: hidden;
-  transition: all 0.35s var(--ease-smooth);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-}
-.metric-card::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  opacity: 0;
-  transition: opacity 0.35s;
-  pointer-events: none;
-}
-.metric-card:hover {
-  border-color: rgba(255,255,255,0.12);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-}
-.metric-card:hover::before { opacity: 1; }
-
-/* Per-card ambient glow on hover — set by JS via accent-bar color */
-.metric-card:nth-child(1)::before { background: radial-gradient(ellipse at 50% 0%, rgba(94,92,230,0.08) 0%, transparent 70%); }
-.metric-card:nth-child(2)::before { background: radial-gradient(ellipse at 50% 0%, rgba(48,209,88,0.08) 0%, transparent 70%); }
-.metric-card:nth-child(3)::before { background: radial-gradient(ellipse at 50% 0%, rgba(255,69,58,0.08) 0%, transparent 70%); }
-.metric-card:nth-child(4)::before { background: radial-gradient(ellipse at 50% 0%, rgba(191,90,242,0.08) 0%, transparent 70%); }
-
-.metric-card .accent-bar {
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 2px;
-}
-
-.metric-card .mc-label {
-  font-family: var(--font-body);
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 1.2px;
-  color: var(--text-tertiary);
-  margin-top: 2px;
-}
-
-.metric-card .mc-row {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  margin-top: 6px;
-}
-
-.metric-card .mc-value {
-  font-family: var(--font-display);
-  font-size: 28px;
-  font-weight: 700;
-  color: var(--text-primary);
-  letter-spacing: -1px;
-  transition: color 0.2s, text-shadow 0.2s;
-  min-width: 80px;
-  font-feature-settings: 'tnum' 1;
-}
-
-.metric-card .mc-delta {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 600;
-}
-.mc-delta.up { color: var(--ios-green); }
-.mc-delta.down { color: var(--ios-red); }
-
-.metric-card .mc-spark {
-  position: absolute;
-  bottom: 8px; right: 10px;
-  width: 80px; height: 28px;
-  opacity: 0.6;
-}
-
-.mc-value.flash {
-  animation: val-flash 0.4s var(--ease-smooth);
-}
-@keyframes val-flash {
-  0% { color: #fff; text-shadow: 0 0 16px rgba(100,180,255,0.7); }
-  100% { color: var(--text-primary); text-shadow: none; }
-}
-
-/* Card border glow pulse on value change */
-.metric-card.glow-pulse {
-  animation: card-glow 0.6s var(--ease-smooth);
-}
-@keyframes card-glow {
-  0% { border-color: var(--glow-color, rgba(255,255,255,0.2)); box-shadow: 0 0 16px 2px var(--glow-color, rgba(100,180,255,0.2)), 0 2px 8px rgba(0,0,0,0.3); }
-  100% { border-color: rgba(255,255,255,0.06); box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
-}
-
-/* ============================================================
-   Chart Area — Ambient Glow Background
-   ============================================================ */
-#chart-area {
-  display: flex;
-  flex-direction: column;
-  background: var(--bg-primary);
-  border-right: 1px solid rgba(255,255,255,0.04);
-  overflow: hidden;
-  position: relative;
-}
-/* Subtle radial glow behind chart */
-#chart-area::before {
-  content: '';
-  position: absolute;
-  top: 50%; left: 50%;
-  width: 60%; height: 60%;
-  transform: translate(-50%, -50%);
-  background: radial-gradient(ellipse, rgba(94,92,230,0.04) 0%, rgba(10,132,255,0.02) 40%, transparent 70%);
-  pointer-events: none;
-  z-index: 0;
-}
-
-#chart-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  flex-shrink: 0;
-  background: rgba(22,32,56,0.6);
-  backdrop-filter: blur(8px);
-  border-bottom: 1px solid rgba(255,255,255,0.04);
-  flex-wrap: wrap;
-  position: relative;
-  z-index: 1;
-}
-
-/* Channel pills */
-.channel-chip {
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  font-weight: 600;
-  padding: 4px 12px;
-  border-radius: 20px;
-  cursor: pointer;
-  border: 1px solid transparent;
-  transition: all 0.25s var(--ease-smooth);
-  user-select: none;
-  letter-spacing: 0.2px;
-}
-.channel-chip.active {
+/* RUNNING 时 header 底部的活动条 */
+.run-stripe { position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; opacity: 0; transition: opacity 0.3s; }
+body.running .run-stripe {
   opacity: 1;
-  border-color: currentColor;
-  box-shadow: 0 0 8px currentColor;
+  background: repeating-linear-gradient(90deg, var(--amber) 0 18px, transparent 18px 32px);
+  animation: stripe-move 0.8s linear infinite;
 }
-.channel-chip.inactive {
-  opacity: 0.25;
-  background: transparent !important;
-  border-color: transparent;
-}
-.channel-chip:hover { opacity: 0.9; transform: scale(1.05); }
-.channel-chip:active { transform: scale(0.95); }
+@keyframes stripe-move { to { background-position: 32px 0; } }
 
-.chart-btn-group {
-  display: flex;
-  gap: 0;
-  margin-left: auto;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 10px;
-  overflow: hidden;
+/* ================= CHART(左主区) ================= */
+#hud-chart-wrap {
+  position: relative; display: flex; flex-direction: column;
+  padding: 12px 14px 10px; border-right: 1px solid var(--line); overflow: hidden; min-width: 0;
 }
+.hud-chart-tools { display: flex; justify-content: space-between; align-items: center; margin-bottom: 9px; gap: 12px; flex-wrap: wrap; }
+.hud-modetabs { display: flex; background: var(--bg-2); border: 1px solid var(--line); border-radius: 3px; overflow: hidden; }
+.hud-modetabs button {
+  background: transparent; border: none; color: var(--ink-mute);
+  padding: 7px 16px; font-family: var(--f-disp); font-weight: 600; font-size: 11px;
+  letter-spacing: 1.8px; cursor: pointer; transition: all 0.15s; border-right: 1px solid var(--line);
+}
+.hud-modetabs button:last-child { border-right: none; }
+.hud-modetabs button:hover { color: var(--ink); }
+.hud-modetabs button.active { background: var(--amber); color: #1a1206; font-weight: 700; }
 
-.chart-btn {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 600;
-  padding: 5px 14px;
-  background: transparent;
-  border: none;
-  color: var(--text-tertiary);
-  cursor: pointer;
-  transition: all 0.2s var(--ease-smooth);
+.hud-chart-right { display: flex; align-items: center; gap: 10px;
+  font-family: var(--f-mono); font-size: 10px; color: var(--ink-mute); letter-spacing: 0.8px; flex-wrap: wrap; }
+.hud-chart-right .live { color: var(--green); font-weight: 600; }
+.hud-chart-right button {
+  background: var(--bg-2); border: 1px solid var(--line-2); color: var(--ink-dim);
+  padding: 5px 10px; font-family: var(--f-mono); font-size: 10px; cursor: pointer; border-radius: 3px;
+  transition: all 0.12s;
 }
-.chart-btn:hover {
-  background: rgba(255,255,255,0.06);
-  color: var(--text-primary);
-}
-.chart-btn:active { background: rgba(255,255,255,0.1); }
+.hud-chart-right button:hover { color: var(--amber); border-color: var(--amber-dim); }
+.hud-zoom { display: flex; align-items: center; gap: 4px; padding: 0 10px;
+  border-left: 1px solid var(--line); border-right: 1px solid var(--line); }
+.hud-zoom button { min-width: 28px; line-height: 1; }
+.hud-zoom .lbl { font-family: var(--f-mono); font-size: 10px; color: var(--amber);
+  letter-spacing: 1px; min-width: 42px; text-align: center; font-variant-numeric: tabular-nums; }
 
-.zoom-label {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text-tertiary);
-  margin-left: 6px;
-  font-weight: 500;
+/* 轨迹对比工具条 */
+#trajCmpBar { align-items: center; gap: 6px; }
+#trajCmpBar label { font-size: 9px; color: var(--ink-mute); letter-spacing: 1.2px; font-family: var(--f-disp); font-weight: 600; }
+#trajCmpBar select {
+  background: var(--bg-2); color: var(--ink); border: 1px solid var(--line-2); border-radius: 3px;
+  font-family: var(--f-mono); font-size: 10px; padding: 4px 5px; max-width: 175px;
 }
+#trajCmpBar select:hover { border-color: var(--amber-dim); }
+#trajCmpBar button {
+  background: var(--bg-2); border: 1px solid var(--line-2); color: var(--ink-dim);
+  padding: 5px 9px; font-family: var(--f-mono); font-size: 10px; cursor: pointer; border-radius: 3px;
+}
+#trajCmpBar button:hover { color: var(--amber); border-color: var(--amber-dim); }
 
-#chart-container {
-  flex: 1;
-  position: relative;
-  min-height: 0;
-  z-index: 1;
+/* 画布:工程制图纸 */
+.hud-chart-canvas {
+  flex: 1; position: relative; overflow: hidden; border: 1px solid var(--line-2); border-radius: 4px;
+  background:
+    linear-gradient(rgba(91, 157, 217, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(91, 157, 217, 0.045) 1px, transparent 1px),
+    linear-gradient(rgba(91, 157, 217, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(91, 157, 217, 0.025) 1px, transparent 1px),
+    linear-gradient(180deg, #131923, #0f141d);
+  background-size: 80px 80px, 80px 80px, 16px 16px, 16px 16px, 100% 100%;
 }
+.hud-chart-canvas svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.hud-chart-canvas.panning { cursor: grabbing; }
+.hud-chart-canvas:not(.panning) { cursor: crosshair; }
 
-#mainChart {
-  display: block;
-  width: 100%;
-  height: 100%;
+.hud-chart-legend {
+  position: absolute; top: 10px; right: 12px; z-index: 2;
+  display: flex; flex-direction: column; gap: 3px;
+  font-family: var(--f-mono); font-size: 10px;
+  background: rgba(14, 18, 24, 0.88); padding: 7px 10px;
+  border: 1px solid var(--line-2); border-radius: 3px; max-height: 62%; overflow-y: auto;
+  backdrop-filter: blur(3px);
 }
+.hud-chart-legend > div { display: flex; align-items: center; gap: 7px; cursor: pointer; line-height: 1.5; }
+.hud-chart-legend > div:hover { filter: brightness(1.25); }
+.hud-chart-legend > div.off { opacity: 0.3; }
+.hud-chart-legend .sw { width: 13px; height: 3px; border-radius: 1px; flex: none; }
+.hud-chart-legend .lv { margin-left: auto; color: var(--ink); font-variant-numeric: tabular-nums; padding-left: 10px; }
 
-/* Tooltip — frosted */
-#chart-tooltip {
-  position: absolute;
-  pointer-events: none;
-  background: rgba(20,30,50,0.88);
-  backdrop-filter: saturate(180%) blur(20px);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 10px;
-  padding: 10px 14px;
-  font-family: var(--font-mono);
-  font-size: 11.5px;
-  color: var(--text-primary);
-  opacity: 0;
-  transition: opacity 0.12s;
-  z-index: 20;
-  white-space: nowrap;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-}
-#chart-tooltip.visible { opacity: 1; }
-
-/* Minimap */
-#minimap-area {
-  height: 36px;
-  flex-shrink: 0;
-  position: relative;
-  background: rgba(14,21,37,0.8);
-  border-top: 1px solid rgba(255,255,255,0.04);
-  cursor: pointer;
-  z-index: 1;
-}
-#minimapCanvas {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-.minimap-viewport {
-  position: absolute;
-  top: 2px; bottom: 2px;
-  background: rgba(10,132,255,0.1);
-  border: 1px solid rgba(10,132,255,0.3);
-  border-radius: 4px;
-  pointer-events: none;
+.hud-empty {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-family: var(--f-mono); font-size: 11.5px; color: var(--ink-mute);
+  letter-spacing: 1.2px; pointer-events: none; text-align: center; padding: 0 30px; line-height: 2;
 }
 
-/* ============================================================
-   Right Panel
-   ============================================================ */
-#right-panel {
-  display: flex;
-  flex-direction: column;
-  background: linear-gradient(180deg, var(--bg-primary) 0%, rgba(16,24,42,1) 100%);
-  overflow: hidden;
+/* minimap */
+.hud-minimap {
+  margin-top: 8px; height: 40px; position: relative; overflow: hidden; user-select: none;
+  background: linear-gradient(180deg, #11161f, #0e1219);
+  border: 1px solid var(--line); border-radius: 3px;
+}
+.hud-minimap svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.hud-minimap .viewport {
+  position: absolute; top: 0; bottom: 0;
+  background: rgba(255, 180, 84, 0.08);
+  border-left: 2px solid var(--amber); border-right: 2px solid var(--amber);
+  cursor: grab;
+}
+.hud-minimap .viewport:active { cursor: grabbing; }
+.hud-minimap .live-tag {
+  position: absolute; top: 4px; right: 7px; font-family: var(--f-mono); font-size: 9px;
+  color: var(--green); letter-spacing: 1px;
+}
+.hud-minimap .live-tag.paused { color: var(--amber); }
+
+/* ================= 右栏 ================= */
+#hud-right { display: flex; flex-direction: column; overflow: hidden; background: var(--bg-1); }
+.hud-panel { position: relative; }
+.hud-panel-title {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 11px 14px 7px; font-family: var(--f-disp); font-weight: 700;
+  font-size: 11px; letter-spacing: 2.2px; color: var(--ink-dim); text-transform: uppercase;
+  border-bottom: 1px solid var(--line);
+}
+.hud-panel-title::before { content: ''; position: absolute; left: 0; width: 3px; height: 14px; background: var(--amber); }
+.hud-panel-title .ext { color: var(--ink-mute); letter-spacing: 1px; font-size: 9px; font-family: var(--f-mono); font-weight: 400; }
+
+#hud-subscribe { flex: 0 0 auto; }
+.hud-streams { display: flex; flex-wrap: wrap; gap: 5px; padding: 10px 14px 12px; border-bottom: 1px solid var(--line); }
+.hud-stream {
+  padding: 5px 10px; border: 1px solid var(--line-2); border-radius: 3px;
+  background: var(--bg-2); color: var(--ink-dim);
+  font-family: var(--f-mono); font-size: 10px; letter-spacing: 0.5px;
+  cursor: pointer; user-select: none; transition: all 0.12s;
+}
+.hud-stream:hover { border-color: var(--amber-dim); color: var(--ink); transform: translateY(-1px); }
+.hud-stream.on { border-color: var(--amber); color: #1a1206; background: var(--amber); font-weight: 700; }
+
+/* Free Subscribe (SEL) 面板 —— 复用预设流 chip + cyberpunk 按钮风格,与右栏统一 */
+#hud-freesub { flex: 0 0 auto; }
+.freesub-ctl { display: flex; gap: 5px; align-items: center; padding: 9px 14px 6px; }
+.freesub-ctl input.period {
+  width: 48px; background: var(--bg-2); color: var(--ink); border: 1px solid var(--line-2);
+  border-radius: 3px; font-family: var(--f-mono); font-size: 10px; padding: 4px 5px; text-align: center;
+  -moz-appearance: textfield;
+}
+.freesub-ctl input.period:hover { border-color: var(--amber-dim); }
+.freesub-ctl button {
+  background: var(--bg-2); border: 1px solid var(--line-2); color: var(--ink-dim);
+  padding: 5px 9px; font-family: var(--f-mono); font-size: 10px; letter-spacing: 0.5px;
+  cursor: pointer; border-radius: 3px; transition: all 0.12s;
+}
+.freesub-ctl button:hover { color: var(--amber); border-color: var(--amber-dim); }
+.freesub-ctl button.apply { color: var(--amber); border-color: var(--amber-dim); }
+.freesub-ctl button.apply:hover { background: var(--amber); color: #1a1206; font-weight: 700; }
+.freesub-grid {
+  display: flex; flex-wrap: wrap; gap: 4px; padding: 4px 14px 12px;
+  max-height: 176px; overflow-y: auto; border-bottom: 1px solid var(--line);
+}
+.freesub-hint { font-family: var(--f-mono); font-size: 10px; color: var(--ink-mute); letter-spacing: 0.8px; padding: 3px 2px; }
+.fs-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 8px; border: 1px solid var(--line-2); border-radius: 3px;
+  background: var(--bg-2); color: var(--ink-dim);
+  font-family: var(--f-mono); font-size: 10px; letter-spacing: 0.3px;
+  cursor: pointer; user-select: none; transition: all 0.12s;
+}
+.fs-chip:hover { border-color: var(--amber-dim); color: var(--ink); transform: translateY(-1px); }
+.fs-chip.on { border-color: var(--amber); color: #1a1206; background: var(--amber); font-weight: 700; }
+.fs-chip .ty { font-size: 8px; opacity: 0.55; letter-spacing: 0; }
+.fs-chip.on .ty { opacity: 0.7; }
+.hud-stream .ms { color: var(--ink-mute); margin-left: 4px; font-size: 9px; }
+.hud-stream.on .ms { color: rgba(26, 18, 6, 0.65); }
+
+#hud-display { flex: 1; overflow-y: auto; padding: 10px 12px 14px; }
+.hud-display-empty {
+  text-align: center; padding: 42px 14px; font-family: var(--f-mono);
+  font-size: 10.5px; color: var(--ink-mute); letter-spacing: 1.2px; line-height: 2;
 }
 
-/* Segmented Control */
-.tab-bar {
-  display: flex;
-  padding: 10px 12px 6px;
-  flex-shrink: 0;
+/* 流卡片:左色条 + 紧凑行 */
+.hud-card {
+  background: var(--bg-2); border: 1px solid var(--line); border-left: 3px solid currentColor;
+  border-radius: 3px; padding: 9px 11px 7px; margin-bottom: 9px;
+}
+.hud-card.s-mission { color: var(--violet); }
+.hud-card.s-turn    { color: var(--steel); }
+.hud-card.s-drive   { color: var(--amber); }
+.hud-card.s-ins     { color: var(--teal); }
+.hud-card.s-yaw     { color: var(--rose); }
+.hud-card.s-odom    { color: var(--green); }
+.hud-card.s-insenc  { color: var(--steel); }
+.hud-card.s-tune    { color: var(--violet); }
+.hud-card.s-looka   { color: var(--amber); }
+.hud-card.s-stats   { color: var(--teal); }
+
+.hud-card-hdr { display: flex; justify-content: space-between; align-items: baseline;
+  font-family: var(--f-disp); margin-bottom: 6px; }
+.hud-card-hdr .name { font-weight: 700; font-size: 12px; letter-spacing: 2px; }
+.hud-card-hdr .meta { font-size: 9px; color: var(--ink-mute); font-family: var(--f-mono); }
+
+.hud-row {
+  display: grid; grid-template-columns: 58px 1fr 72px; gap: 8px; align-items: center;
+  padding: 3px 0; font-family: var(--f-mono); font-size: 11px;
+}
+.hud-row + .hud-row { border-top: 1px solid rgba(46, 57, 80, 0.45); }
+.hud-row .k { color: var(--ink-mute); font-size: 9.5px; overflow: hidden; text-overflow: ellipsis; letter-spacing: 0.4px;
+  display: flex; align-items: center; gap: 5px; }
+.hud-row.plottable { cursor: pointer; border-radius: 2px; transition: background 0.1s; }
+.hud-row.plottable:hover { background: rgba(91, 157, 217, 0.07); }
+.plot-dot { width: 7px; height: 7px; border-radius: 50%; flex: none;
+  border: 1.5px solid var(--ink-mute); background: transparent; transition: all 0.12s; }
+.hud-row.plottable:hover .plot-dot { border-color: var(--amber); }
+.hud-row .v { text-align: right; color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.hud-row.warn .v { color: var(--amber); }
+.hud-row.crit .v { color: var(--red); font-weight: 700; }
+.hud-row .spark { width: 100%; height: 14px; display: block; opacity: 0.9; }
+.hud-row .booltag { text-align: center; color: var(--ink-mute); font-size: 8.5px; letter-spacing: 1px; }
+
+.hud-badge {
+  display: inline-block; padding: 2px 8px; font-size: 9px; letter-spacing: 1.4px;
+  font-family: var(--f-mono); border-radius: 2px; text-align: center; font-weight: 700;
+  background: var(--bg-3); color: var(--ink-mute); border: 1px solid var(--line-2);
+}
+.hud-badge.on    { color: #0d2616; background: var(--green); border-color: var(--green); }
+.hud-badge.off   { /* base */ }
+.hud-badge.event { color: #fff; background: var(--violet); border-color: var(--violet); }
+.hud-badge.warn  { color: #2b1c04; background: var(--amber); border-color: var(--amber); }
+.hud-badge.crit  { color: #fff; background: var(--red); border-color: var(--red); animation: dot-pulse 1s ease-in-out infinite; }
+
+.hud-more { text-align: center; color: var(--ink-mute); font-size: 9px; font-family: var(--f-mono);
+  letter-spacing: 1px; cursor: pointer; padding: 6px 0 2px; }
+.hud-more:hover { color: var(--amber); }
+
+/* 调参滑条组 */
+.hud-tune { margin: 2px 0 10px; padding: 9px 10px; background: var(--bg-3);
+  border: 1px solid var(--line-2); border-radius: 3px; }
+.hud-tune-title { font-family: var(--f-disp); font-weight: 700; font-size: 9.5px;
+  letter-spacing: 2px; color: var(--ink-dim); margin-bottom: 7px; }
+.hud-slider { display: grid; grid-template-columns: 40px 1fr 52px; gap: 9px; align-items: center;
+  padding: 4px 0; font-family: var(--f-mono); font-size: 10px; }
+.hud-slider input[type=range] {
+  -webkit-appearance: none; appearance: none; width: 100%; height: 3px;
+  background: var(--line-2); border-radius: 2px; outline: none; cursor: pointer;
+}
+.hud-slider input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; width: 13px; height: 13px;
+  background: var(--amber); border-radius: 50%; cursor: pointer; border: 2px solid #1a1206;
+}
+.hud-slider input[type=range]::-moz-range-thumb {
+  width: 13px; height: 13px; background: var(--amber); border-radius: 50%; cursor: pointer; border: 2px solid #1a1206;
+}
+.hud-slider .lbl { color: var(--ink-mute); letter-spacing: 0.6px; }
+.hud-slider .val { text-align: right; color: var(--amber); font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.hud-replay-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 9px; }
+.hud-replay-btns button {
+  background: transparent; border: 1.5px solid currentColor; padding: 8px;
+  font-family: var(--f-disp); font-weight: 700; font-size: 11px;
+  letter-spacing: 2px; cursor: pointer; border-radius: 3px; transition: all 0.12s;
+}
+.hud-replay-btns .start { color: var(--green); }
+.hud-replay-btns .start:hover:not(:disabled) { background: var(--green); color: #0d2616; }
+.hud-replay-btns .stop { color: var(--red); }
+.hud-replay-btns .stop:hover:not(:disabled) { background: var(--red); color: #fff; }
+.hud-replay-btns button:disabled { color: var(--ink-mute); border-color: var(--line-2); cursor: not-allowed; opacity: 0.5; }
+
+/* ================= 悬浮 STOP / 故障横幅 ================= */
+.hud-floating-stop {
+  position: absolute; right: 22px; bottom: 70px; width: 92px; height: 92px;
+  background: var(--red); border: 3px solid #ffd2d7; border-radius: 50%;
+  color: #fff; font-family: var(--f-disp); font-weight: 700;
+  font-size: 14px; letter-spacing: 2px; cursor: pointer;
+  box-shadow: 0 6px 30px rgba(255, 77, 94, 0.45), inset 0 -3px 0 rgba(0,0,0,0.25);
+  display: none; align-items: center; justify-content: center; flex-direction: column;
+  z-index: 50; animation: stop-pulse 1.4s ease-in-out infinite;
+}
+.hud-floating-stop:hover { transform: scale(1.05); }
+.hud-floating-stop .ico { font-size: 20px; line-height: 1; margin-bottom: 3px; }
+.hud-floating-stop .kb { position: absolute; bottom: -22px; left: 50%; transform: translateX(-50%);
+  font-size: 9px; font-family: var(--f-mono); color: var(--ink-mute); white-space: nowrap; }
+@keyframes stop-pulse {
+  0%, 100% { box-shadow: 0 6px 30px rgba(255, 77, 94, 0.45), inset 0 -3px 0 rgba(0,0,0,0.25); }
+  50% { box-shadow: 0 6px 48px rgba(255, 77, 94, 0.75), inset 0 -3px 0 rgba(0,0,0,0.25); }
+}
+.hud-banner-fail {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  padding: 16px 30px; background: var(--red); color: #fff;
+  font-family: var(--f-disp); font-weight: 700; font-size: 14px; letter-spacing: 2px;
+  border-radius: 4px; z-index: 100; display: none;
+  box-shadow: 0 10px 50px rgba(255, 77, 94, 0.5);
 }
 
-.tab-bar-inner {
-  display: flex;
-  width: 100%;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 10px;
-  padding: 2px;
+/* ================= 控制台 ================= */
+#hud-console-wrap {
+  grid-column: 1 / -1; display: flex; flex-direction: column; min-height: 0;
+  background: #0b0f15; border-top: 1px solid var(--line-2);
 }
+.console-bar {
+  display: flex; align-items: center; gap: 10px; padding: 5px 14px;
+  border-bottom: 1px solid var(--line); flex: none;
+}
+.console-bar .c-title { font-family: var(--f-disp); font-weight: 700; font-size: 10px;
+  letter-spacing: 2.2px; color: var(--ink-mute); }
+.c-filters { display: flex; background: var(--bg-2); border: 1px solid var(--line); border-radius: 3px; overflow: hidden; }
+.c-filters button, #btnConsoleClear {
+  background: transparent; border: none; color: var(--ink-mute); padding: 3px 12px;
+  font-family: var(--f-mono); font-size: 9px; letter-spacing: 1.2px; cursor: pointer;
+}
+.c-filters button + button { border-left: 1px solid var(--line); }
+.c-filters button.on { background: var(--amber); color: #1a1206; font-weight: 700; }
+#btnConsoleClear { border: 1px solid var(--line); border-radius: 3px; margin-left: auto; }
+#btnConsoleClear:hover { color: var(--red); border-color: var(--red); }
 
-.tab-btn {
-  font-family: var(--font-body);
-  font-size: 12px;
-  font-weight: 600;
-  padding: 7px 0;
-  background: none;
-  border: none;
-  color: var(--text-tertiary);
-  cursor: pointer;
-  transition: all 0.3s var(--ease-smooth);
-  flex: 1;
-  text-align: center;
-  border-radius: 8px;
-  position: relative;
-  z-index: 1;
+#hud-console {
+  flex: 1; overflow-y: auto; padding: 6px 16px;
+  font-family: var(--f-mono); font-size: 11px; line-height: 1.6;
 }
-.tab-btn:hover { color: var(--text-secondary); }
-.tab-btn.active {
-  color: var(--text-primary);
-  background: var(--bg-tertiary);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04);
-}
+#hud-console .pr   { color: var(--ink-mute); }
+#hud-console .ack  { color: var(--teal); }
+#hud-console .tel  { color: var(--ink-dim); }
+#hud-console .err  { color: var(--red); }
+#hud-console .info { color: var(--amber); }
+#hud-console[data-filter="cmd"] > div:not(.ln-ack):not(.ln-err) { display: none; }
+#hud-console[data-filter="err"] > div:not(.ln-err) { display: none; }
 
-.tab-content {
-  flex: 1;
-  overflow-y: auto;
-  padding: 2px 12px 12px;
-  display: none;
-}
-.tab-content.active { display: block; }
-
-/* ---- Section title with accent dot ---- */
-.detail-section-title {
-  font-family: var(--font-body);
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 1.2px;
-  color: var(--text-tertiary);
-  margin: 18px 0 8px;
-  padding: 0 4px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.detail-section-title::before {
-  content: '';
-  width: 4px; height: 4px;
-  border-radius: 50%;
-  background: var(--ios-blue);
-  box-shadow: 0 0 6px rgba(10,132,255,0.4);
-  flex-shrink: 0;
-}
-.detail-section-title:first-child { margin-top: 8px; }
-
-/* ---- Hero metric cards (for Attitude) ---- */
-.hero-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-.hero-card {
-  background: linear-gradient(145deg, var(--bg-secondary), rgba(22,32,56,0.8));
-  border: 1px solid rgba(255,255,255,0.05);
-  border-radius: var(--radius);
-  padding: 12px 14px;
-  position: relative;
-  overflow: hidden;
-  transition: all 0.25s var(--ease-smooth);
-}
-.hero-card::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0;
-  width: 3px; height: 100%;
-  border-radius: 0 2px 2px 0;
-}
-.hero-card:hover {
-  border-color: rgba(255,255,255,0.10);
-  background: linear-gradient(145deg, var(--bg-tertiary), var(--bg-secondary));
-}
-.hero-card .hero-label {
-  font-family: var(--font-body);
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: var(--text-tertiary);
-  margin-bottom: 4px;
-}
-.hero-card .hero-value {
-  font-family: var(--font-mono);
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--text-primary);
-  letter-spacing: -0.5px;
-  font-feature-settings: 'tnum' 1;
-  transition: color 0.15s;
-}
-.hero-card .hero-unit {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--text-quaternary);
-  margin-left: 2px;
-  font-weight: 500;
-}
-
-/* Hero card color variants */
-.hero-card[data-color="blue"]::before { background: var(--ios-blue); }
-.hero-card[data-color="blue"] .hero-value { color: var(--ios-teal); }
-.hero-card[data-color="green"]::before { background: var(--ios-green); }
-.hero-card[data-color="green"] .hero-value { color: var(--ios-green); }
-.hero-card[data-color="purple"]::before { background: var(--ios-purple); }
-.hero-card[data-color="purple"] .hero-value { color: var(--ios-purple); }
-.hero-card[data-color="indigo"]::before { background: var(--ios-indigo); }
-.hero-card[data-color="indigo"] .hero-value { color: var(--ios-indigo); }
-
-/* ---- Grouped list card ---- */
-.detail-grid {
-  display: flex;
-  flex-direction: column;
-  background: var(--bg-secondary);
-  border: 1px solid rgba(255,255,255,0.04);
-  border-radius: var(--radius);
-  overflow: hidden;
-}
-
-.detail-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 9px 14px;
-  background: transparent;
-  transition: all 0.2s;
-  position: relative;
-}
-.detail-item:not(:last-child)::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 14px; right: 14px;
-  height: 1px;
-  background: rgba(255,255,255,0.035);
-}
-.detail-item:hover {
-  background: rgba(255,255,255,0.025);
-}
-
-.detail-item .di-label {
-  font-family: var(--font-body);
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text-secondary);
-}
-
-.detail-item .di-value {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-primary);
-  font-feature-settings: 'tnum' 1;
-  text-align: right;
-  min-width: 80px;
-}
-
-/* ---- Status badge (pill) ---- */
-.status-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  font-weight: 700;
-  padding: 3px 10px;
-  border-radius: 20px;
-  letter-spacing: 0.3px;
-}
-.status-badge.ok {
-  background: rgba(48,209,88,0.12);
-  color: var(--ios-green);
-  border: 1px solid rgba(48,209,88,0.2);
-}
-.status-badge.warn {
-  background: rgba(255,159,10,0.12);
-  color: var(--ios-orange);
-  border: 1px solid rgba(255,159,10,0.2);
-}
-.status-badge.off {
-  background: rgba(255,255,255,0.04);
-  color: var(--text-tertiary);
-  border: 1px solid rgba(255,255,255,0.06);
-}
-
-/* ---- Highlighted values ---- */
-.detail-item.highlight .di-value {
-  color: var(--ios-blue);
-  text-shadow: 0 0 10px rgba(10,132,255,0.2);
-}
-.detail-item.status-ok .di-value {
-  color: var(--ios-green);
-  text-shadow: 0 0 10px rgba(48,209,88,0.15);
-}
-.detail-item.status-warn .di-value {
-  color: var(--ios-orange);
-  text-shadow: 0 0 10px rgba(255,159,10,0.15);
-}
-
-/* ---- Compact 2-col grid for extended data ---- */
-.detail-grid-compact {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0 0;
-  background: var(--bg-secondary);
-  border: 1px solid rgba(255,255,255,0.04);
-  border-radius: var(--radius);
-  overflow: hidden;
-}
-.detail-grid-compact .detail-item {
-  padding: 7px 12px;
-}
-.detail-grid-compact .detail-item .di-label {
-  font-size: 10.5px;
-  color: var(--text-tertiary);
-}
-.detail-grid-compact .detail-item .di-value {
-  font-size: 11px;
-  min-width: 50px;
-}
-.detail-grid-compact .detail-item:not(:last-child)::after {
-  left: 12px; right: 12px;
-}
-/* Add right border on left-column items */
-.detail-grid-compact .detail-item:nth-child(odd) {
-  border-right: 1px solid rgba(255,255,255,0.035);
-}
-
-/* ============================================================
-   Command Area
-   ============================================================ */
-#cmd-area {
-  flex-shrink: 0;
-  padding: 10px 12px;
-  border-top: 1px solid rgba(255,255,255,0.04);
-  background: var(--bg-primary);
-}
-
-.cmd-quick {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 8px;
-}
-
-/* Tinted buttons */
-.cmd-btn {
-  font-family: var(--font-body);
-  font-size: 12px;
-  font-weight: 600;
-  padding: 7px 14px;
-  border-radius: 10px;
-  background: rgba(10,132,255,0.12);
-  border: 1px solid rgba(10,132,255,0.15);
-  color: var(--ios-blue);
-  cursor: pointer;
-  transition: all 0.2s var(--ease-smooth);
-}
-.cmd-btn:hover {
-  background: rgba(10,132,255,0.22);
-  border-color: rgba(10,132,255,0.3);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(10,132,255,0.15);
-}
-.cmd-btn:active {
-  transform: scale(0.96);
-}
-
-.cmd-btn.sim-start {
-  background: rgba(48,209,88,0.12);
-  border-color: rgba(48,209,88,0.15);
-  color: var(--ios-green);
-}
-.cmd-btn.sim-start:hover {
-  background: rgba(48,209,88,0.22);
-  border-color: rgba(48,209,88,0.3);
-  box-shadow: 0 4px 12px rgba(48,209,88,0.12);
-}
-.cmd-btn.sim-stop {
-  background: rgba(255,69,58,0.12);
-  border-color: rgba(255,69,58,0.15);
-  color: var(--ios-red);
-}
-.cmd-btn.sim-stop:hover {
-  background: rgba(255,69,58,0.22);
-  border-color: rgba(255,69,58,0.3);
-  box-shadow: 0 4px 12px rgba(255,69,58,0.12);
-}
-
-.cmd-input-row {
-  display: flex;
-  gap: 8px;
-}
-
-#cmdInput {
-  flex: 1;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  padding: 9px 14px;
-  background: var(--bg-secondary);
-  border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 10px;
-  color: var(--text-primary);
-  outline: none;
-  transition: all 0.2s;
-}
-#cmdInput:focus {
-  border-color: rgba(10,132,255,0.4);
-  box-shadow: 0 0 0 3px rgba(10,132,255,0.1);
-}
-#cmdInput::placeholder { color: var(--text-quaternary); }
-
-#cmdSend {
-  font-family: var(--font-body);
-  font-size: 13px;
-  font-weight: 600;
-  padding: 9px 20px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #0a84ff, #5e5ce6);
-  border: none;
-  color: #fff;
-  cursor: pointer;
-  transition: all 0.2s var(--ease-smooth);
-  box-shadow: 0 2px 10px rgba(10,132,255,0.25);
-}
-#cmdSend:hover {
-  box-shadow: 0 4px 20px rgba(10,132,255,0.35);
-  transform: translateY(-1px);
-}
-#cmdSend:active {
-  transform: scale(0.96);
-}
-
-/* ============================================================
-   Console
-   ============================================================ */
-#console {
-  grid-column: 1 / -1;
-  background: rgba(10,14,24,0.95);
-  border-top: 1px solid rgba(255,255,255,0.04);
-  padding: 8px 24px;
-  overflow-y: auto;
-  font-family: var(--font-mono);
-  font-size: 11.5px;
-  line-height: 1.7;
-  color: var(--text-secondary);
-}
-
-.console-line {
-  opacity: 0;
-  animation: fade-in 0.25s var(--ease-smooth) forwards;
-}
-@keyframes fade-in {
-  from { opacity: 0; transform: translateY(3px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.console-line .cl-time {
-  color: var(--text-quaternary);
-  margin-right: 10px;
-}
-.console-line .cl-tag {
-  font-weight: 600;
-  margin-right: 8px;
-}
-.cl-tag.info  { color: var(--ios-blue); }
-.cl-tag.ok    { color: var(--ios-green); }
-.cl-tag.warn  { color: var(--ios-orange); }
-.cl-tag.error { color: var(--ios-red); }
-.cl-tag.cmd   { color: var(--ios-purple); }
-
-/* ============================================================
-   Reveal Animation
-   ============================================================ */
-.reveal {
-  opacity: 0;
-  transform: translateY(14px) scale(0.97);
-  animation: reveal 0.5s var(--ease-smooth) forwards;
-}
-@keyframes reveal {
-  to { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-/* ============================================================
-   Responsive
-   ============================================================ */
-@media (max-width: 1100px) {
-  #app { grid-template-columns: 1fr 290px; }
-  .metric-card .mc-value { font-size: 22px; }
-}
 </style>
 </head>
 <body>
 
-<div id="app">
-  <!-- ===================== HEADER ===================== -->
-  <header id="header">
-    <div class="logo">SmartCar Tuning</div>
-    <div class="spacer"></div>
-    <div class="status-group">
-      <div class="status-dot" id="connDot"></div>
-      <span class="badge" id="connLabel">Disconnected</span>
-      <span class="badge badge-accent" id="clientCount">0 clients</span>
+<div id="hud-app">
+  <header id="hud-header">
+    <div class="brand">
+      <span class="brand-mark">▞▞</span>
+      <span class="brand-name">SMARTCAR <em>PIT-WALL</em></span>
+      <span class="brand-tag" id="appTag">PIT-WALL · 2026-06-10</span>
     </div>
+    <div class="status-cluster">
+      <span class="st-chip" id="linkChip"><span class="dot" id="linkDot"></span><span id="linkText">CONNECTING …</span></span>
+      <span class="st-chip hud-hb" id="hbChip"><span class="heart">●</span><span id="hbText">HB --</span></span>
+      <span class="st-chip" id="clientChip">0 clients</span>
+    </div>
+    <div class="header-actions">
+      <button class="test-btn" id="btnSimDisc" title="本地暂停 HB 保活,测固件 Gate 8">TEST: PAUSE HB</button>
+      <button class="stop-header" id="btnHeaderStop" title="MISSION IDLE — 急停(Space / Esc)">■ STOP</button>
+    </div>
+    <div class="run-stripe"></div>
   </header>
 
-  <!-- ===================== METRICS BAR ===================== -->
-  <div id="metrics-bar">
-    <!-- Cards injected by JS -->
-  </div>
+  <section id="hud-chart-wrap">
+    <div class="hud-chart-tools">
+      <div class="hud-modetabs">
+        <button class="active" data-mode="time" id="modeTime">TIME-SERIES</button>
+        <button data-mode="traj" id="modeTraj">TRAJECTORY XY</button>
+      </div>
+      <div class="hud-chart-right">
+        <span id="trajCmpBar" style="display:none">
+          <label>ORIG</label><select id="selOrig" title="原始录制(recordings/ learn dump)"></select>
+          <label>OPT</label><select id="selOpt" title="优化输出(paths/ *_opt.json)"></select>
+          <button id="btnPathsReload" title="刷新 paths/ + recordings/ 文件列表">⟳ FILES</button>
+        </span>
+        <input type="file" id="fileOrig" accept=".json" style="display:none">
+        <input type="file" id="fileOpt" accept=".json" style="display:none">
+        <div class="hud-zoom">
+          <button id="btnZoomOut" title="Zoom out (wheel down)">−</button>
+          <button id="btnZoomIn" title="Zoom in (wheel up)">+</button>
+          <button id="btnZoomReset" title="Reset zoom + back to LIVE">⟲</button>
+          <span class="lbl" id="zoomLabel">1.0×</span>
+        </div>
+        <span class="live" id="liveBadge">● LIVE</span>
+        <span id="chartMeta">t=0.0s · 0 fps</span>
+        <button id="btnFit" style="display:none">FIT</button>
+        <button id="btnFetch" style="display:none">↻ FETCH</button>
+      </div>
+    </div>
+    <button class="hud-floating-stop" id="floatingStop" title="Emergency stop (Space / Esc)">
+      <span class="ico">■</span>STOP<span class="kb">Space / Esc</span>
+    </button>
+    <div class="hud-banner-fail" id="stopFailBanner">⚠ STOP COMMAND FAILED — GATE 8 INCOMING ⚠</div>
+    <div class="hud-chart-canvas" id="chartCanvas">
+      <svg id="chartSvg" viewBox="0 0 800 380" preserveAspectRatio="none"></svg>
+      <div class="hud-chart-legend" id="chartLegend" style="display:none"></div>
+      <div class="hud-empty" id="chartEmpty">— 订阅流(右上)后，点右栏数据行 / 行首圆点选择要画的曲线 —</div>
+      <div class="hud-empty" id="trajEmpty" style="display:none">— SUBSCRIBE MISSION to see trajectory —</div>
+    </div>
+    <div class="hud-minimap" id="minimap">
+      <svg id="minimapSvg" viewBox="0 0 1000 38" preserveAspectRatio="none">
+        <path id="miniArea" fill="rgba(255,180,84,0.08)" stroke="none" d=""/>
+        <path id="miniLine" stroke="#8b9bb4" fill="none" stroke-width="1" style="color:#8b9bb4" d=""/>
+      </svg>
+      <div class="viewport" id="minimapViewport" style="left:80%;width:20%"></div>
+      <span class="live-tag" id="miniLive">● LIVE</span>
+    </div>
+  </section>
 
-  <!-- ===================== CHART AREA ===================== -->
-  <div id="chart-area">
-    <div id="chart-toolbar">
-      <!-- Channel chips injected by JS -->
-      <div class="chart-btn-group">
-        <button class="chart-btn" id="btnZoomIn" title="Zoom in">+</button>
-        <button class="chart-btn" id="btnZoomOut" title="Zoom out">&minus;</button>
-        <button class="chart-btn" id="btnZoomReset" title="Reset zoom">Reset</button>
+  <aside id="hud-right">
+    <section id="hud-subscribe" class="hud-panel">
+      <div class="hud-panel-title"><span>Subscribe</span><span class="ext" id="subCount">0/10 ACTIVE</span></div>
+      <div class="hud-streams" id="streams"></div>
+    </section>
+    <section id="hud-freesub" class="hud-panel">
+      <div class="hud-panel-title"><span>Free Subscribe · SEL</span><span class="ext" id="freeSubCount">0 sel</span></div>
+      <div class="freesub-ctl">
+        <input class="period" id="freeSubPeriod" type="number" min="20" max="5000" step="10" value="100" title="period ms (>=20)">
+        <button class="apply" id="freeSubApply" title="SUB SET 勾选字段(同帧一时间戳)">APPLY</button>
+        <button id="freeSubClear" title="SUB CLEAR 停 SEL">CLEAR</button>
+        <button id="freeSubReload" title="GET CATALOG 拉字段目录">↻ CAT</button>
       </div>
-      <span class="zoom-label" id="zoomLabel">1.0x</span>
-    </div>
-    <div id="chart-container">
-      <canvas id="mainChart"></canvas>
-      <div id="chart-tooltip"></div>
-    </div>
-    <div id="minimap-area">
-      <canvas id="minimapCanvas"></canvas>
-      <div class="minimap-viewport" id="minimapViewport"></div>
-    </div>
-  </div>
+      <div class="freesub-grid" id="freeSubGrid">
+        <span class="freesub-hint">— 点 ↻ CAT 拉取字段目录 —</span>
+      </div>
+    </section>
+    <section id="hud-display-section" class="hud-panel" style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+      <div class="hud-panel-title"><span>Telemetry</span><span class="ext" id="dispCount">no streams</span></div>
+      <div id="hud-display"><div class="hud-display-empty" id="dispEmpty">— click a stream above to subscribe —</div></div>
+    </section>
+  </aside>
 
-  <!-- ===================== RIGHT PANEL ===================== -->
-  <div id="right-panel">
-    <div class="tab-bar">
-      <div class="tab-bar-inner">
-        <button class="tab-btn active" data-tab="telemetry">Telemetry</button>
-        <button class="tab-btn" data-tab="commands">Commands</button>
+  <footer id="hud-console-wrap">
+    <div class="console-bar">
+      <span class="c-title">CONSOLE</span>
+      <div class="c-filters">
+        <button data-cf="all" class="on">ALL</button>
+        <button data-cf="cmd">CMD</button>
+        <button data-cf="err">ERR</button>
       </div>
+      <button id="btnConsoleClear">CLEAR</button>
     </div>
-    <div class="tab-content active" id="tab-telemetry">
-      <!-- Injected by JS -->
-    </div>
-    <div class="tab-content" id="tab-commands">
-      <!-- Injected by JS -->
-    </div>
-    <div id="cmd-area">
-      <div class="cmd-quick">
-        <button class="cmd-btn" data-cmd="GET PID">GET PID</button>
-        <button class="cmd-btn" data-cmd="SAVE PID">SAVE PID</button>
-        <button class="cmd-btn sim-start" data-cmd="SET TELEMETRY ON">Start</button>
-        <button class="cmd-btn sim-stop" data-cmd="SET TELEMETRY OFF">Stop</button>
-      </div>
-      <div class="cmd-input-row">
-        <input type="text" id="cmdInput" placeholder="Type a command..." autocomplete="off">
-        <button id="cmdSend">Send</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ===================== CONSOLE ===================== -->
-  <div id="console"></div>
+    <div id="hud-console" data-filter="all"></div>
+  </footer>
 </div>
 
 <script>
-/* ================================================================
-   DATA LAYER
-   ================================================================ */
+'use strict';
+
+/* ============================================================
+ * Configuration
+ * ============================================================ */
 const API_BASE = `${window.location.protocol}//${window.location.host}`;
-const POLL_INTERVAL = 16;  // ~60fps polling
-const MAX_DATA_POINTS = 10000;
-const MAX_CONSOLE_LINES = 200;
+/* 50ms=20Hz:遥测天花板 ~12Hz,60Hz 轮询纯浪费还挤桥(实测高频轮询堵桥
+ * 会把心跳挤超时触发固件 Gate8 假 abort)。 */
+const POLL_INTERVAL = 50;            // ms — /latest polling (20Hz)
+const STATUS_INTERVAL = 2000;        // ms — /status polling
+const HB_INTERVAL = 200;             // ms — heartbeat send cadence during RUNNING (spec §4.8 Layer 2)
+const SPARK_N = 180;                 // in-card sparkline buffer (3s @ 60Hz)
+const CHART_N = 1800;                // main chart buffer (~30s)
+const STOP_ACK_TIMEOUT_MS = 200;     // STOP retry threshold
+const STOP_MAX_RETRIES = 3;
 
-// Channel definitions — defaults, overridden by /config at startup
-let CHANNELS = [
-  { key: 'gx',   label: 'GX',   color: '#5e5ce6', visible: true },
-  { key: 'gy',   label: 'GY',   color: '#30d158', visible: true },
-  { key: 'gz',   label: 'GZ',   color: '#ff453a', visible: true },
-  { key: 'gxyz', label: 'GXYZ', color: '#bf5af2', visible: true },
-];
-
-// Primary metric keys (top cards, first 4 channels)
-let PRIMARY_METRICS = ['gx', 'gy', 'gz', 'gxyz'];
-
-// Detail metrics grouped — Telemetry tab
-let DETAIL_GROUPS = [
-  {
-    title: 'Attitude',
+/* ============================================================
+ * Stream schema (matches firmware TEL<NAME> prefixes)
+ * Replaces legacy primary_metrics/detail_metrics/extended_metrics.
+ * spec: §6
+ * ============================================================ */
+const STREAMS = {
+  TURN: {
+    color: '#5b9dd9', defaultPeriod: 50,
     fields: [
-      { key: 'roll', label: 'Roll' }, { key: 'pitch', label: 'Pitch' },
-      { key: 'yaw', label: 'Yaw' }, { key: 'anorm', label: 'A-Norm' },
-    ]
+      {key:'t_tgt', label:'TGT',    type:'num', unit:'°'},
+      {key:'t_cur', label:'CUR',    type:'num', unit:'°'},
+      {key:'t_err', label:'ERR',    type:'num', unit:'°', severity:{warnAbs:2, critAbs:5}},
+      {key:'t_en',  label:'ENABLE', type:'bool'},
+      {key:'t_kp',  label:'KP',     type:'num'},
+      {key:'t_ki',  label:'KI',     type:'num'},
+      {key:'t_kd',  label:'KD',     type:'num'},
+    ],
   },
-  {
-    title: 'Bias Calibration',
+  DRIVE: {
+    color: '#ffb454', defaultPeriod: 50,
     fields: [
-      { key: 'bias_ok', label: 'Bias OK' }, { key: 'bias_cal', label: 'Bias Cal' },
-      { key: 'bias_n', label: 'Bias N' }, { key: 'bias_t', label: 'Bias T' },
-    ]
+      {key:'d_tgt', label:'TGT',    type:'num', unit:'mm/s'},
+      {key:'d_mL',  label:'MEAS L', type:'num', unit:'mm/s'},
+      {key:'d_mR',  label:'MEAS R', type:'num', unit:'mm/s'},
+      {key:'d_dL',  label:'DUTY L', type:'num'},
+      {key:'d_dR',  label:'DUTY R', type:'num'},
+      {key:'d_eL',  label:'ERR L',  type:'num'},
+      {key:'d_eR',  label:'ERR R',  type:'num'},
+    ],
   },
-  {
-    title: 'Extended Sensors',
+  MISSION: {
+    color: '#a883e8', defaultPeriod: 100, collapseAfter: 7,
+    actions: {
+      start: {label:'▶ START', cmd:'MISSION RETURN', tone:'green'},
+      stop:  {label:'■ STOP',  cmd:'MISSION IDLE',   tone:'red'},
+    },
+    stateEnum: {0:'IDLE', 1:'EVENT1', 2:'LEARN', 3:'RETURN', 4:'ABORT'},
     fields: [
-      { key: 'gcx', label: 'GCX' }, { key: 'gcy', label: 'GCY' },
-      { key: 'gcz', label: 'GCZ' }, { key: 'gbx', label: 'GBX' },
-      { key: 'gby', label: 'GBY' }, { key: 'gbz', label: 'GBZ' },
-      { key: 'bias_flash', label: 'Flash' },
-      { key: 'q0', label: 'Q0' }, { key: 'q1', label: 'Q1' },
-      { key: 'q2', label: 'Q2' }, { key: 'q3', label: 'Q3' },
-      { key: 'ax', label: 'AX' }, { key: 'ay', label: 'AY' },
-      { key: 'az', label: 'AZ' }, { key: 'anorm', label: 'A-Norm' },
-      { key: 'att_upd', label: 'Att Update' },
-    ]
+      {key:'m_st',     label:'STATE',    type:'enum'},
+      {key:'m_eng',    label:'ENG',      type:'bool'},
+      {key:'m_idx',    label:'CURSOR',   type:'num'},
+      {key:'m_dst',    label:'TGT_DIST', type:'num', unit:'m'},
+      {key:'m_xte',    label:'XTE',      type:'num', unit:'m', severity:{warnAbs:0.3, critAbs:1.0}},
+      {key:'m_yer',    label:'YAW_ERR',  type:'num', unit:'°'},
+      {key:'m_str',    label:'STEER',    type:'num', unit:'°'},
+      {key:'m_spd',    label:'SPEED',    type:'num', unit:'mm/s'},
+      {key:'m_kp',     label:'KP_LIVE',  type:'num'},
+      {key:'m_cap',    label:'CAP_LIVE', type:'num'},
+      {key:'m_la',     label:'LA_LIVE',  type:'num'},
+      {key:'m_lost',   label:'LOST',     type:'bool'},
+      {key:'m_brk',    label:'BRAKE',    type:'bool'},
+      {key:'m_de',     label:'DIR_KEY',  type:'bool'},
+      {key:'m_cpx',    label:'CUR_PX',   type:'num', unit:'m'},
+      {key:'m_cpy',    label:'CUR_PY',   type:'num', unit:'m'},
+      {key:'m_cyaw',   label:'CUR_YAW',  type:'num', unit:'°'},
+      {key:'m_tcpok',  label:'TCP_OK',   type:'bool'},
+      {key:'m_hbok',   label:'HB_OK',    type:'bool'},
+      {key:'m_lostsrc',label:'LOSTSRC',  type:'num'},
+    ],
   },
-];
-
-// Data stores
-const dataStore = {
-  history: [],
-  sparklines: {},
-  prevValues: {},
-  connected: false,
-  serverInfo: { mode: '--', port: '--', connections: 0, running: false },
-  lastCmdResult: {},
+  YAW: {
+    color: '#e0708f', defaultPeriod: 50,
+    fields: [
+      {key:'gz_raw',    label:'GZ_RAW',    type:'num'},
+      {key:'gz_comp',   label:'GZ_COMP',   type:'num'},
+      {key:'gz_scaled', label:'GZ_SC',     type:'num'},
+      {key:'yaw_int',   label:'YAW_INT',   type:'num', unit:'°'},
+      {key:'yaw_final', label:'YAW',       type:'num', unit:'°'},
+      {key:'yaw_corr',  label:'YAW_CORR',  type:'num'},
+    ],
+  },
+  INS: {
+    color: '#46c2a5', defaultPeriod: 50,
+    fields: [
+      {key:'ins_spd', label:'SPEED', type:'num', unit:'m/s'},
+      {key:'ins_vx',  label:'VX',    type:'num'},
+      {key:'ins_vy',  label:'VY',    type:'num'},
+      {key:'roll',    label:'ROLL',  type:'num', unit:'°'},
+      {key:'pitch',   label:'PITCH', type:'num', unit:'°'},
+      {key:'yaw',     label:'YAW',   type:'num', unit:'°'},
+    ],
+  },
+  ODOM: {
+    color: '#58c47c', defaultPeriod: 50,
+    fields: [
+      {key:'L_spd', label:'L_SPD', type:'num', unit:'mm/s'},
+      {key:'R_spd', label:'R_SPD', type:'num', unit:'mm/s'},
+    ],
+  },
+  INSENC: {
+    color: '#5b9dd9', defaultPeriod: 50,
+    fields: [
+      {key:'L_vg', label:'L_VG', type:'num'},
+      {key:'L_pg', label:'L_PG', type:'num'},
+      {key:'L_sr', label:'L_SR', type:'num'},
+      {key:'R_vg', label:'R_VG', type:'num'},
+      {key:'R_pg', label:'R_PG', type:'num'},
+      {key:'R_sr', label:'R_SR', type:'num'},
+    ],
+  },
+  TUNE: {
+    color: '#a883e8', defaultPeriod: 50,
+    fields: [
+      {key:'m_st',  label:'STATE',  type:'enum'},
+      {key:'m_eng', label:'ENG',    type:'bool'},
+      {key:'m_idx', label:'CURSOR', type:'num'},
+      {key:'m_xte', label:'XTE',    type:'num', unit:'m'},
+      {key:'m_yer', label:'YER',    type:'num', unit:'°'},
+      {key:'m_str', label:'STEER',  type:'num', unit:'°'},
+      {key:'m_spd', label:'SPD',    type:'num', unit:'mm/s'},
+    ],
+  },
+  LOOKA: {
+    color: '#ffb454', defaultPeriod: 50,
+    fields: [
+      {key:'m_st',    label:'STATE',  type:'enum'},
+      {key:'m_idx',   label:'CURSOR', type:'num'},
+      {key:'m_xte',   label:'XTE',    type:'num', unit:'m'},
+      {key:'m_ladst', label:'LA_DST', type:'num', unit:'m'},
+      {key:'m_lageo', label:'LA_GEO', type:'num', unit:'°'},
+      {key:'m_larec', label:'LA_REC', type:'num', unit:'°'},
+      {key:'m_blnd',  label:'BLEND',  type:'num'},
+    ],
+  },
+  STATS: {
+    color: '#46c2a5', defaultPeriod: 1000, collapseAfter: 8,
+    fields: [
+      {key:'tcp',    label:'TCP',    type:'bool'},
+      {key:'alive',  label:'ALIVE',  type:'bool'},
+      {key:'wd',     label:'WDOG',   type:'bool'},
+      /* 2026-06 固件配置回显(每跑用的什么配置从数据可证,不再猜) */
+      {key:'vpen',   label:'VPROF',  type:'bool'},
+      {key:'alat',   label:'A_LAT',  type:'num', unit:'m/s²'},
+      {key:'fs',     label:'FULL',   type:'num', unit:'m/s'},
+      {key:'diffg',  label:'DIFFG',  type:'num'},
+      {key:'slew',   label:'SLEW',   type:'num'},
+      {key:'adla',   label:'AD_LA',  type:'bool'},
+      {key:'adlt',   label:'AD_LT',  type:'num', unit:'s'},
+      {key:'txb',    label:'TXB',    type:'num'},
+      {key:'rxb',    label:'RXB',    type:'num'},
+      {key:'txo',    label:'TX_OV',  type:'num'},
+      {key:'rxo',    label:'RX_OV',  type:'num'},
+      {key:'txfail', label:'TXFAIL', type:'num'},
+      {key:'txhi',   label:'TX_HI',  type:'num'},
+      {key:'rxhi',   label:'RX_HI',  type:'num'},
+      {key:'reconn', label:'RECON',  type:'num'},
+      {key:'ppmm',   label:'PPMM',   type:'num'},
+    ],
+  },
+  /* SEL：字段级自由组合订阅(TELSEL)。fields 由 GET CATALOG + 用户勾选动态填充;
+   * dynamic 标记 → 不出现在预设流 chips,且 onTelemetryFrame 在 fields 空时用帧
+   * 自身 keys 自描述重建(兜 curl 直发 SUB SET / 重连丢勾选状态)。 */
+  SEL: { color:'#e8c84e', defaultPeriod:100, dynamic:true, fields:[] },
 };
 
-// Chart view state
-const view = {
-  viewStart: 0,
-  viewCount: 200,
-  baseCount: 200,
-  autoFollow: true,
-  isDragging: false,
-  dragStartX: 0,
-  dragStartView: 0,
-  // Smooth Y-axis state
-  smoothYMin: null,
-  smoothYMax: null,
+/* Map TEL prefix → stream name (firmware-side prefixes from tuning_send.c). */
+const PREFIX_TO_STREAM = {
+  'TELTURN':    'TURN',
+  'TELDRIVE':   'DRIVE',
+  'TELMISSION': 'MISSION',
+  'TELY':       'YAW',
+  'TELINS':     'INS',
+  'TELODOM':    'ODOM',
+  'TELINSENC':  'INSENC',
+  'TELTUNE':    'TUNE',
+  'TELLOOKA':   'LOOKA',
+  'TELSTATS':   'STATS',
+  'TELSEL':     'SEL',
 };
 
-// Minimap drag state
-const mmDrag = { active: false, startX: 0, startView: 0 };
+/* ============================================================
+ * State
+ * ============================================================ */
+const subscribed = new Set();         // stream names currently subscribed
+const streamPeriods = {};             // override periods (defaults from STREAMS[].defaultPeriod)
+const sparkBuf = {};                  // field key -> ring buffer (in-card sparkline)
+const chartBuf = {};                  // field key -> long ring buffer (main chart)
+const chartChanColor = {};            // field key -> color (per-field, distinct)
+const chartChanVisible = {};          // field key -> bool (是否画线;默认 false = 订阅不自动画)
 
-/* ================================================================
-   LOAD CONFIG FROM SERVER
-   ================================================================ */
-async function loadConfig() {
-  try {
-    const resp = await fetch(`${API_BASE}/config`);
-    if (!resp.ok) return;
-    const cfg = await resp.json();
-
-    // Override channels
-    if (cfg.plot_channels && cfg.plot_channels.length) {
-      CHANNELS = cfg.plot_channels.map(ch => ({
-        key: ch.key,
-        label: ch.label || ch.key.toUpperCase(),
-        color: ch.color,
-        visible: ch.visible !== false,
-      }));
-    }
-
-    // Override primary metrics
-    if (cfg.primary_metrics && cfg.primary_metrics.length) {
-      PRIMARY_METRICS = cfg.primary_metrics.map(m => m.key);
-    }
-
-    // Override detail groups from detail + extended metrics
-    if (cfg.detail_metrics || cfg.extended_metrics) {
-      DETAIL_GROUPS = [];
-      if (cfg.detail_metrics && cfg.detail_metrics.length) {
-        DETAIL_GROUPS.push({
-          title: 'Detail',
-          fields: cfg.detail_metrics.map(m => ({ key: m.key, label: m.label })),
-        });
-      }
-      if (cfg.extended_metrics && cfg.extended_metrics.length) {
-        DETAIL_GROUPS.push({
-          title: 'Extended',
-          fields: cfg.extended_metrics.map(m => ({ key: m.key, label: m.label })),
-        });
-      }
-    }
-
-    // Update page title
-    if (cfg.app_title) {
-      document.title = cfg.app_title;
-    }
-  } catch (e) {
-    consoleLog('warn', 'Config', 'Using built-in defaults');
+/* 每字段独立配色(2026-06-10):同流字段不再同色 → 图上分得清谁是谁。
+ * 选线时按需从这个调色板顺序取色(跳过已用色),保证同时显示的线颜色互不撞。
+ * 12 色高区分度环,暖冷交替。 */
+const PLOT_PALETTE = [
+  '#ffb454', '#5b9dd9', '#58c47c', '#e0708f', '#a883e8', '#46c2a5',
+  '#f0c040', '#7fb3ff', '#ff8a5b', '#9ad36b', '#d98fd9', '#5bd1c4',
+];
+function allocPlotColor(key) {
+  if (chartChanColor[key]) return chartChanColor[key];
+  const used = new Set(Object.entries(chartChanColor)
+    .filter(([k]) => chartChanVisible[k]).map(([, c]) => c));
+  let pick = PLOT_PALETTE.find(c => !used.has(c));
+  if (!pick) {
+    // 全用完了:按已分配字段数轮转(极少见,>12 条线同时显示)
+    pick = PLOT_PALETTE[Object.keys(chartChanColor).length % PLOT_PALETTE.length];
   }
+  chartChanColor[key] = pick;
+  return pick;
 }
 
-/* ================================================================
-   UI INITIALIZATION
-   ================================================================ */
-function initUI() {
-  buildMetricCards();
-  buildChannelChips();
-  buildDetailPanel();
-  bindTabs();
-  bindCommands();
-  bindChartEvents();
-  bindMinimapEvents();
-  bindKeyboardShortcuts();
-  consoleLog('info', 'Dashboard', 'Initializing...');
+let chartMode = 'time';
+let zoomLevel = 1.0;
+let isLive = true;
+let frozenEndIdx = 0;
+const ZOOM_MIN = 1.0, ZOOM_MAX = 10.0, ZOOM_STEP = 1.25;
+
+const trajState = {
+  fetchState:  'PENDING',  // 'PENDING' | 'FETCHING' | 'READY' | 'EMPTY'
+  pathPts:     [],
+  trailPts:    [],
+  replayState: 'IDLE',     // 'IDLE' | 'RUNNING' | 'STOPPED' — driven by firmware m_st
+  lastTrailMs: 0,
+  /* 轨迹文件对比(2026-06-10):原始录制 vs 离线优化线 */
+  origPts:     [],
+  optPts:      [],
+  origName:    '',
+  optName:     '',
+  /* 坐标系对齐(2026-06-10):录制文件在"录制时 DR 系",复现 trail(m_cpx/cpy)在
+   * "本次 DR 系"——参考姿态变换允许任意摆位起跑,两系差一个刚体变换,直接叠加
+   * 必错位。固件 TELMISSION 发 m_tpx/m_tpy(当前目标点)+m_idx(录制序号)=
+   * 现成对应点对 → 2D Kabsch 解 R,t 把 trail 变换进文件系。 */
+  alignPairs:  new Map(),   // idx -> {x,y}(live 系下的目标点)
+  align:       null,        // {c,s,tx,ty,rms,n} live→file 刚体变换;null=未对齐
+  alignDirty:  0,           // 新 pair 计数,攒够重算
+};
+
+const safetyState = {
+  tcpOk:        true,
+  hbOk:         true,
+  lostSrc:      0,
+  apiConnected: false,
+  hbSuppressed: false,        // TEST: PAUSE HB toggle
+  hbTimerId:    null,
+  stopRetryCount: 0,
+  stopRetryTimer: null,
+};
+
+let frameCount = 0, lastFpsTs = performance.now(), currentFps = 0;
+let trackDumpAckSeen = false, trackDumpCount = 0;
+let trajLastFetched = 0;
+
+/* ============================================================
+ * Console log
+ * ============================================================ */
+function tsNow() { return new Date().toTimeString().slice(0,8); }
+/* 网络来的文本(ACK/ERR 内容)进 innerHTML 前转义,防телemetry 里的 <> 撕版面 */
+function escapeHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
-
-function buildMetricCards() {
-  const bar = document.getElementById('metrics-bar');
-  bar.innerHTML = '';
-  PRIMARY_METRICS.forEach((key, i) => {
-    const ch = CHANNELS[i];
-    const card = document.createElement('div');
-    card.className = 'metric-card reveal';
-    card.style.animationDelay = `${i * 0.08}s`;
-    card.innerHTML = `
-      <div class="accent-bar" style="background: ${ch.color}"></div>
-      <div class="mc-label">${ch.label}</div>
-      <div class="mc-row">
-        <span class="mc-value" id="mv-${key}">--</span>
-        <span class="mc-delta" id="md-${key}"></span>
-      </div>
-      <svg class="mc-spark" id="spark-${key}" viewBox="0 0 80 28" preserveAspectRatio="none">
-        <defs>
-          <linearGradient id="sg-${key}" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="${ch.color}" stop-opacity="0.4"/>
-            <stop offset="100%" stop-color="${ch.color}" stop-opacity="0"/>
-          </linearGradient>
-        </defs>
-        <path id="spark-fill-${key}" fill="url(#sg-${key})" d=""/>
-        <path id="spark-line-${key}" fill="none" stroke="${ch.color}" stroke-width="1.5" d=""/>
-      </svg>
-    `;
-    bar.appendChild(card);
-    dataStore.sparklines[key] = [];
-  });
-}
-
-function buildChannelChips() {
-  const toolbar = document.getElementById('chart-toolbar');
-  const btnGroup = toolbar.querySelector('.chart-btn-group');
-  CHANNELS.forEach((ch, i) => {
-    const chip = document.createElement('span');
-    chip.className = `channel-chip ${ch.visible ? 'active' : 'inactive'}`;
-    chip.style.color = ch.color;
-    chip.style.background = ch.visible ? hexToRGBA(ch.color, 0.15) : 'transparent';
-    chip.textContent = ch.label;
-    chip.dataset.idx = i;
-    chip.addEventListener('click', () => {
-      ch.visible = !ch.visible;
-      chip.className = `channel-chip ${ch.visible ? 'active' : 'inactive'}`;
-      chip.style.background = ch.visible ? hexToRGBA(ch.color, 0.15) : 'transparent';
-      requestChartRender();
-    });
-    toolbar.insertBefore(chip, btnGroup);
-  });
-}
-
-function buildDetailPanel() {
-  const container = document.getElementById('tab-telemetry');
-  container.innerHTML = '';
-
-  // Hero card config for Attitude
-  const heroColors = { roll: 'blue', pitch: 'green', yaw: 'purple', anorm: 'indigo' };
-  const heroUnits = { roll: '\u00B0', pitch: '\u00B0', yaw: '\u00B0', anorm: '' };
-  // Badge keys for Bias section
-  const badgeKeys = new Set(['bias_ok', 'bias_cal']);
-
-  DETAIL_GROUPS.forEach((group, gi) => {
-    const title = document.createElement('div');
-    title.className = 'detail-section-title';
-    title.textContent = group.title;
-    container.appendChild(title);
-
-    // Attitude -> hero cards
-    if (gi === 0) {
-      const heroGrid = document.createElement('div');
-      heroGrid.className = 'hero-grid';
-      group.fields.forEach(f => {
-        const card = document.createElement('div');
-        card.className = 'hero-card';
-        card.dataset.color = heroColors[f.key] || 'blue';
-        card.id = 'di-' + f.key;
-        card.innerHTML = `
-          <div class="hero-label">${f.label}</div>
-          <span class="hero-value" id="dv-${f.key}">--</span><span class="hero-unit">${heroUnits[f.key] || ''}</span>
-        `;
-        heroGrid.appendChild(card);
-      });
-      container.appendChild(heroGrid);
-      return;
-    }
-
-    // Extended -> compact 2-col grid
-    if (gi === 2) {
-      const grid = document.createElement('div');
-      grid.className = 'detail-grid-compact';
-      group.fields.forEach(f => {
-        const item = document.createElement('div');
-        item.className = 'detail-item';
-        item.id = 'di-' + f.key;
-        item.innerHTML = `
-          <span class="di-label">${f.label}</span>
-          <span class="di-value" id="dv-${f.key}">--</span>
-        `;
-        grid.appendChild(item);
-      });
-      container.appendChild(grid);
-      return;
-    }
-
-    // Bias -> normal list with badge support
-    const grid = document.createElement('div');
-    grid.className = 'detail-grid';
-    group.fields.forEach(f => {
-      const item = document.createElement('div');
-      item.className = 'detail-item';
-      item.id = 'di-' + f.key;
-      if (badgeKeys.has(f.key)) {
-        item.innerHTML = `
-          <span class="di-label">${f.label}</span>
-          <span class="status-badge off" id="dv-${f.key}">--</span>
-        `;
-      } else {
-        item.innerHTML = `
-          <span class="di-label">${f.label}</span>
-          <span class="di-value" id="dv-${f.key}">--</span>
-        `;
-      }
-      grid.appendChild(item);
-    });
-    container.appendChild(grid);
-  });
-}
-
-function bindTabs() {
-  const btns = document.querySelectorAll('.tab-btn');
-  btns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      btns.forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-      btn.classList.add('active');
-      document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
-    });
-  });
-}
-
-function bindCommands() {
-  document.querySelectorAll('.cmd-btn[data-cmd]').forEach(btn => {
-    btn.addEventListener('click', () => sendCommand(btn.dataset.cmd));
-  });
-
-  const input = document.getElementById('cmdInput');
-  const sendBtn = document.getElementById('cmdSend');
-  sendBtn.addEventListener('click', () => {
-    const cmd = input.value.trim();
-    if (cmd) { sendCommand(cmd); input.value = ''; }
-  });
-  input.addEventListener('keydown', e => {
-    if (e.key === 'Enter') {
-      const cmd = input.value.trim();
-      if (cmd) { sendCommand(cmd); input.value = ''; }
-    }
-  });
-}
-
-/* ================================================================
-   CHART INTERACTION EVENTS
-   ================================================================ */
-function bindChartEvents() {
-  const canvas = document.getElementById('mainChart');
-
-  canvas.addEventListener('wheel', e => {
-    e.preventDefault();
-    const rect = canvas.getBoundingClientRect();
-    const mouseXRatio = (e.clientX - rect.left) / rect.width;
-    const zoomFactor = e.deltaY > 0 ? 1.15 : 0.87;
-    const newCount = Math.max(20, Math.min(dataStore.history.length, Math.round(view.viewCount * zoomFactor)));
-    const delta = newCount - view.viewCount;
-    const leftShift = Math.round(delta * mouseXRatio);
-    view.viewStart = Math.max(0, view.viewStart - leftShift);
-    view.viewCount = newCount;
-    view.smoothYMin = null; view.smoothYMax = null;
-    clampView();
-    view.autoFollow = (view.viewStart + view.viewCount >= dataStore.history.length);
-    updateZoomLabel();
-    requestChartRender();
-  }, { passive: false });
-
-  canvas.addEventListener('mousedown', e => {
-    if (e.button === 0) {
-      view.isDragging = true;
-      view.dragStartX = e.clientX;
-      view.dragStartView = view.viewStart;
-      canvas.style.cursor = 'grabbing';
-    }
-  });
-  window.addEventListener('mousemove', e => {
-    if (view.isDragging) {
-      const rect = document.getElementById('mainChart').getBoundingClientRect();
-      const pxPerPoint = rect.width / view.viewCount;
-      const dx = e.clientX - view.dragStartX;
-      const pointsDelta = Math.round(dx / pxPerPoint);
-      view.viewStart = Math.max(0, Math.min(dataStore.history.length - view.viewCount, view.dragStartView - pointsDelta));
-      view.autoFollow = (view.viewStart + view.viewCount >= dataStore.history.length);
-      updateZoomLabel();
-      requestChartRender();
-    }
-    updateTooltip(e);
-  });
-  window.addEventListener('mouseup', () => {
-    if (view.isDragging) {
-      view.isDragging = false;
-      document.getElementById('mainChart').style.cursor = 'crosshair';
-    }
-  });
-
-  canvas.addEventListener('dblclick', () => {
-    view.viewCount = view.baseCount;
-    view.autoFollow = true;
-    view.smoothYMin = null; view.smoothYMax = null;
-    clampView();
-    updateZoomLabel();
-    requestChartRender();
-  });
-
-  canvas.addEventListener('mouseleave', () => {
-    document.getElementById('chart-tooltip').classList.remove('visible');
-  });
-
-  document.getElementById('btnZoomIn').addEventListener('click', () => {
-    view.viewCount = Math.max(20, Math.round(view.viewCount * 0.75));
-    clampView();
-    view.autoFollow = (view.viewStart + view.viewCount >= dataStore.history.length);
-    updateZoomLabel();
-    requestChartRender();
-  });
-  document.getElementById('btnZoomOut').addEventListener('click', () => {
-    view.viewCount = Math.min(dataStore.history.length || view.baseCount, Math.round(view.viewCount * 1.35));
-    clampView();
-    view.autoFollow = (view.viewStart + view.viewCount >= dataStore.history.length);
-    updateZoomLabel();
-    requestChartRender();
-  });
-  document.getElementById('btnZoomReset').addEventListener('click', () => {
-    view.viewCount = view.baseCount;
-    view.autoFollow = true;
-    view.smoothYMin = null; view.smoothYMax = null;
-    clampView();
-    updateZoomLabel();
-    requestChartRender();
-  });
-
-  canvas.style.cursor = 'crosshair';
-}
-
-function bindKeyboardShortcuts() {
-  window.addEventListener('keydown', e => {
-    // Don't capture when typing in input fields
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-
-    const step = Math.max(1, Math.round(view.viewCount * 0.1));
-
-    switch (e.key) {
-      case ' ':  // Space: toggle auto-follow (pause/resume)
-        e.preventDefault();
-        view.autoFollow = !view.autoFollow;
-        if (view.autoFollow) {
-          view.viewStart = Math.max(0, dataStore.history.length - view.viewCount);
-          consoleLog('info', 'Chart', 'Auto-follow ON');
-        } else {
-          consoleLog('info', 'Chart', 'Auto-follow OFF (paused)');
-        }
-        requestChartRender();
-        break;
-
-      case 'ArrowLeft':  // Move viewport left
-        e.preventDefault();
-        view.autoFollow = false;
-        view.viewStart = Math.max(0, view.viewStart - step);
-        updateZoomLabel();
-        requestChartRender();
-        break;
-
-      case 'ArrowRight':  // Move viewport right
-        e.preventDefault();
-        view.viewStart = Math.min(
-          Math.max(0, dataStore.history.length - view.viewCount),
-          view.viewStart + step
-        );
-        view.autoFollow = (view.viewStart + view.viewCount >= dataStore.history.length);
-        updateZoomLabel();
-        requestChartRender();
-        break;
-
-      case '+':
-      case '=':  // Zoom in
-        e.preventDefault();
-        view.viewCount = Math.max(20, Math.round(view.viewCount * 0.75));
-        view.smoothYMin = null; view.smoothYMax = null;
-        clampView();
-        view.autoFollow = (view.viewStart + view.viewCount >= dataStore.history.length);
-        updateZoomLabel();
-        requestChartRender();
-        break;
-
-      case '-':
-      case '_':  // Zoom out
-        e.preventDefault();
-        view.viewCount = Math.min(dataStore.history.length || view.baseCount, Math.round(view.viewCount * 1.35));
-        view.smoothYMin = null; view.smoothYMax = null;
-        clampView();
-        view.autoFollow = (view.viewStart + view.viewCount >= dataStore.history.length);
-        updateZoomLabel();
-        requestChartRender();
-        break;
-
-      case 'Home':  // Jump to start
-        e.preventDefault();
-        view.autoFollow = false;
-        view.viewStart = 0;
-        view.smoothYMin = null; view.smoothYMax = null;
-        updateZoomLabel();
-        requestChartRender();
-        break;
-
-      case 'End':  // Jump to latest
-        e.preventDefault();
-        view.autoFollow = true;
-        view.viewStart = Math.max(0, dataStore.history.length - view.viewCount);
-        view.smoothYMin = null; view.smoothYMax = null;
-        updateZoomLabel();
-        requestChartRender();
-        break;
-
-      case 'r':
-      case 'R':  // Reset zoom
-        view.viewCount = view.baseCount;
-        view.autoFollow = true;
-        view.smoothYMin = null; view.smoothYMax = null;
-        clampView();
-        updateZoomLabel();
-        requestChartRender();
-        break;
-    }
-  });
-}
-
-function bindMinimapEvents() {
-  const mm = document.getElementById('minimap-area');
-  mm.addEventListener('mousedown', e => {
-    mmDrag.active = true;
-    const rect = mm.getBoundingClientRect();
-    const ratio = (e.clientX - rect.left) / rect.width;
-    const total = dataStore.history.length || 1;
-    view.viewStart = Math.round(ratio * total - view.viewCount / 2);
-    clampView();
-    view.autoFollow = (view.viewStart + view.viewCount >= total);
-    mmDrag.startX = e.clientX;
-    mmDrag.startView = view.viewStart;
-    updateZoomLabel();
-    requestChartRender();
-  });
-  window.addEventListener('mousemove', e => {
-    if (!mmDrag.active) return;
-    const rect = mm.getBoundingClientRect();
-    const dx = e.clientX - mmDrag.startX;
-    const total = dataStore.history.length || 1;
-    const pointsDelta = Math.round((dx / rect.width) * total);
-    view.viewStart = Math.max(0, Math.min(total - view.viewCount, mmDrag.startView + pointsDelta));
-    view.autoFollow = (view.viewStart + view.viewCount >= total);
-    updateZoomLabel();
-    requestChartRender();
-  });
-  window.addEventListener('mouseup', () => { mmDrag.active = false; });
-}
-
-function clampView() {
-  const total = dataStore.history.length;
-  if (total === 0) return;
-  view.viewCount = Math.max(20, Math.min(total, view.viewCount));
-  if (view.autoFollow) {
-    view.viewStart = Math.max(0, total - view.viewCount);
-  } else {
-    view.viewStart = Math.max(0, Math.min(total - view.viewCount, view.viewStart));
-  }
-}
-
-function updateZoomLabel() {
-  const zoom = view.baseCount / view.viewCount;
-  document.getElementById('zoomLabel').textContent =
-    zoom === 1 ? '1.0x' : zoom.toFixed(1) + 'x';
-}
-
-/* ================================================================
-   CROSSHAIR + TOOLTIP
-   ================================================================ */
-// Persistent crosshair state so renderChart can draw it
-const crosshair = { active: false, mouseX: 0, mouseY: 0, dataIdx: -1 };
-
-function updateTooltip(e) {
-  const canvas = document.getElementById('mainChart');
-  const rect = canvas.getBoundingClientRect();
-  const tooltip = document.getElementById('chart-tooltip');
-
-  if (e.clientX < rect.left || e.clientX > rect.right ||
-      e.clientY < rect.top || e.clientY > rect.bottom ||
-      view.isDragging || dataStore.history.length === 0) {
-    tooltip.classList.remove('visible');
-    if (crosshair.active) { crosshair.active = false; requestChartRender(); }
-    return;
-  }
-
-  const localX = e.clientX - rect.left;
-  const localY = e.clientY - rect.top;
-  const xRatio = localX / rect.width;
-  const idx = Math.round(view.viewStart + xRatio * (view.viewCount - 1));
-  const clamped = Math.max(0, Math.min(dataStore.history.length - 1, idx));
-  const point = dataStore.history[clamped];
-  if (!point) { tooltip.classList.remove('visible'); crosshair.active = false; return; }
-
-  // Update crosshair state
-  crosshair.active = true;
-  crosshair.mouseX = localX;
-  crosshair.mouseY = localY;
-  crosshair.dataIdx = clamped;
-  requestChartRender();
-
-  // Build tooltip with colored dots
-  let html = `<div style="color:var(--text-tertiary);margin-bottom:3px;font-size:10px;font-weight:500;">#${clamped}</div>`;
-  CHANNELS.forEach(ch => {
-    if (!ch.visible) return;
-    const val = point[ch.key];
-    html += `<div style="display:flex;align-items:center;gap:6px;padding:1.5px 0;">` +
-      `<span style="width:6px;height:6px;border-radius:50%;background:${ch.color};box-shadow:0 0 4px ${ch.color};flex-shrink:0;"></span>` +
-      `<span style="color:var(--text-secondary);font-size:11px;">${ch.label}</span>` +
-      `<span style="color:${ch.color};font-weight:700;margin-left:auto;font-size:11px;">${val != null ? Number(val).toFixed(3) : '--'}</span>` +
-      `</div>`;
-  });
-  tooltip.innerHTML = html;
-  tooltip.classList.add('visible');
-
-  let tx = localX + 18;
-  let ty = localY - 10;
-  if (tx + tooltip.offsetWidth > rect.width - 8) tx = localX - tooltip.offsetWidth - 14;
-  if (ty < 8) ty = 8;
-  if (ty + tooltip.offsetHeight > rect.height - 8) ty = rect.height - tooltip.offsetHeight - 8;
-  tooltip.style.left = tx + 'px';
-  tooltip.style.top = ty + 'px';
-}
-
-// Draw crosshair overlay on top of chart (called from renderChart)
-function drawCrosshair(ctx, W, H, pad, cw, ch_h, yMin, yMax, xOf, yOf, slice, start) {
-  if (!crosshair.active || crosshair.dataIdx < 0) return;
-
-  const localIdx = crosshair.dataIdx - start;
-  if (localIdx < 0 || localIdx >= slice.length) return;
-  const point = slice[localIdx];
-  if (!point) return;
-
-  const cx = xOf(localIdx);
-
-  // Vertical crosshair line
-  ctx.save();
-  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
-  ctx.lineWidth = 1;
-  ctx.setLineDash([4, 4]);
-  ctx.beginPath();
-  ctx.moveTo(cx, pad.top);
-  ctx.lineTo(cx, pad.top + ch_h);
-  ctx.stroke();
-  ctx.setLineDash([]);
-
-  // Horizontal line at mouse Y
-  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
-  ctx.setLineDash([4, 4]);
-  ctx.beginPath();
-  ctx.moveTo(pad.left, crosshair.mouseY);
-  ctx.lineTo(pad.left + cw, crosshair.mouseY);
-  ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.restore();
-
-  // Highlighted dots on each channel at this data point
-  CHANNELS.forEach(c => {
-    if (!c.visible) return;
-    const v = parseFloat(point[c.key]);
-    if (!isFinite(v)) return;
-    const cy = yOf(v);
-
-    // Outer glow ring
-    ctx.save();
-    ctx.shadowColor = c.color;
-    ctx.shadowBlur = 8;
-    ctx.strokeStyle = c.color;
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.arc(cx, cy, 5, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.restore();
-
-    // Inner dot
-    ctx.fillStyle = c.color;
-    ctx.beginPath();
-    ctx.arc(cx, cy, 2.5, 0, Math.PI * 2);
-    ctx.fill();
-  });
-}
-
-/* ================================================================
-   CHART RENDERING (Canvas)
-   ================================================================ */
-let chartRAF = null;
-function requestChartRender() {
-  if (chartRAF) return;
-  chartRAF = requestAnimationFrame(() => {
-    chartRAF = null;
-    renderChart();
-    renderMinimap();
-    updateMinimapViewport();
-  });
-}
-
-function renderChart() {
-  const canvas = document.getElementById('mainChart');
-  const container = document.getElementById('chart-container');
-  const dpr = window.devicePixelRatio || 1;
-  const W = container.clientWidth;
-  const H = container.clientHeight;
-  canvas.width = W * dpr;
-  canvas.height = H * dpr;
-  canvas.style.width = W + 'px';
-  canvas.style.height = H + 'px';
-
-  const ctx = canvas.getContext('2d');
-  ctx.scale(dpr, dpr);
-  ctx.clearRect(0, 0, W, H);
-
-  const data = dataStore.history;
-  if (data.length === 0) {
-    ctx.fillStyle = 'rgba(255,255,255,0.08)';
-    ctx.font = '15px -apple-system, BlinkMacSystemFont, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('Waiting for telemetry data...', W / 2, H / 2);
-    return;
-  }
-
-  const pad = { top: 16, right: 16, bottom: 24, left: 56 };
-  const cw = W - pad.left - pad.right;
-  const ch_h = H - pad.top - pad.bottom;
-
-  const start = view.viewStart;
-  const count = Math.min(view.viewCount, data.length - start);
-  const slice = data.slice(start, start + count);
-
-  // Compute target Y range from visible data
-  let targetMin = Infinity, targetMax = -Infinity;
-  CHANNELS.forEach(c => {
-    if (!c.visible) return;
-    slice.forEach(p => {
-      const v = parseFloat(p[c.key]);
-      if (isFinite(v)) {
-        if (v < targetMin) targetMin = v;
-        if (v > targetMax) targetMax = v;
-      }
-    });
-  });
-  if (!isFinite(targetMin)) { targetMin = -1; targetMax = 1; }
-  const yPadding = (targetMax - targetMin) * 0.12 || 1;
-  targetMin -= yPadding;
-  targetMax += yPadding;
-
-  // Smooth Y-axis: expand fast, shrink slow
-  if (view.smoothYMin === null || view.smoothYMax === null) {
-    view.smoothYMin = targetMin;
-    view.smoothYMax = targetMax;
-  } else {
-    // Expand immediately to never clip data; shrink with lerp
-    const shrinkRate = 0.04;  // slow shrink (lower = smoother)
-    const expandRate = 0.5;   // fast expand to keep data visible
-    view.smoothYMin = targetMin < view.smoothYMin
-      ? view.smoothYMin + (targetMin - view.smoothYMin) * expandRate
-      : view.smoothYMin + (targetMin - view.smoothYMin) * shrinkRate;
-    view.smoothYMax = targetMax > view.smoothYMax
-      ? view.smoothYMax + (targetMax - view.smoothYMax) * expandRate
-      : view.smoothYMax + (targetMax - view.smoothYMax) * shrinkRate;
-  }
-
-  const yMin = view.smoothYMin;
-  const yMax = view.smoothYMax;
-
-  const xOf = i => pad.left + (i / (count - 1 || 1)) * cw;
-  const yOf = v => pad.top + (1 - (v - yMin) / (yMax - yMin)) * ch_h;
-
-  drawGrid(ctx, W, H, pad, cw, ch_h, yMin, yMax, xOf, yOf, count);
-
-  CHANNELS.forEach(c => {
-    if (!c.visible) return;
-    const pts = [];
-    slice.forEach((p, i) => {
-      const v = parseFloat(p[c.key]);
-      if (isFinite(v)) pts.push({ x: xOf(i), y: yOf(v) });
-    });
-    if (pts.length < 2) return;
-
-    // Gradient fill — richer
-    const grad = ctx.createLinearGradient(0, pad.top, 0, pad.top + ch_h);
-    grad.addColorStop(0, hexToRGBA(c.color, 0.22));
-    grad.addColorStop(0.5, hexToRGBA(c.color, 0.06));
-    grad.addColorStop(1, hexToRGBA(c.color, 0));
-    ctx.beginPath();
-    drawSmoothLine(ctx, pts);
-    ctx.lineTo(pts[pts.length - 1].x, pad.top + ch_h);
-    ctx.lineTo(pts[0].x, pad.top + ch_h);
-    ctx.closePath();
-    ctx.fillStyle = grad;
-    ctx.fill();
-
-    // Outer glow (wide, soft)
-    ctx.save();
-    ctx.shadowColor = c.color;
-    ctx.shadowBlur = 16;
-    ctx.lineWidth = 4;
-    ctx.strokeStyle = hexToRGBA(c.color, 0.15);
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.beginPath();
-    drawSmoothLine(ctx, pts);
-    ctx.stroke();
-    ctx.restore();
-
-    // Inner glow (medium)
-    ctx.save();
-    ctx.shadowColor = c.color;
-    ctx.shadowBlur = 6;
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = hexToRGBA(c.color, 0.4);
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.beginPath();
-    drawSmoothLine(ctx, pts);
-    ctx.stroke();
-    ctx.restore();
-
-    // Main line — crisp
-    ctx.lineWidth = 2.2;
-    ctx.strokeStyle = c.color;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.beginPath();
-    drawSmoothLine(ctx, pts);
-    ctx.stroke();
-
-    // Endpoint dot — layered glow
-    const last = pts[pts.length - 1];
-    // Outer halo
-    ctx.save();
-    ctx.shadowColor = c.color;
-    ctx.shadowBlur = 20;
-    ctx.fillStyle = hexToRGBA(c.color, 0.25);
-    ctx.beginPath();
-    ctx.arc(last.x, last.y, 7, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-    // Core dot
-    ctx.fillStyle = c.color;
-    ctx.beginPath();
-    ctx.arc(last.x, last.y, 3.5, 0, Math.PI * 2);
-    ctx.fill();
-    // White center
-    ctx.fillStyle = '#fff';
-    ctx.beginPath();
-    ctx.arc(last.x, last.y, 1.3, 0, Math.PI * 2);
-    ctx.fill();
-  });
-
-  // Crosshair overlay (drawn last, on top of everything)
-  drawCrosshair(ctx, W, H, pad, cw, ch_h, yMin, yMax, xOf, yOf, slice, start);
-}
-
-function drawSmoothLine(ctx, pts) {
-  if (pts.length < 2) return;
-  ctx.moveTo(pts[0].x, pts[0].y);
-  if (pts.length === 2) {
-    ctx.lineTo(pts[1].x, pts[1].y);
-    return;
-  }
-  for (let i = 0; i < pts.length - 1; i++) {
-    const p0 = pts[Math.max(0, i - 1)];
-    const p1 = pts[i];
-    const p2 = pts[i + 1];
-    const p3 = pts[Math.min(pts.length - 1, i + 2)];
-    const tension = 0.3;
-    const cp1x = p1.x + (p2.x - p0.x) * tension;
-    const cp1y = p1.y + (p2.y - p0.y) * tension;
-    const cp2x = p2.x - (p3.x - p1.x) * tension;
-    const cp2y = p2.y - (p3.y - p1.y) * tension;
-    ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
-  }
-}
-
-function drawGrid(ctx, W, H, pad, cw, ch_h, yMin, yMax, xOf, yOf, count) {
-  ctx.save();
-
-  // Subtle vertical lines (time divisions)
-  const xTicks = Math.min(count, 8);
-  const xStep = Math.max(1, Math.floor(count / xTicks));
-  ctx.strokeStyle = 'rgba(255,255,255,0.025)';
-  ctx.lineWidth = 1;
-  for (let i = xStep; i < count; i += xStep) {
-    const x = xOf(i);
-    ctx.beginPath();
-    ctx.moveTo(x, pad.top);
-    ctx.lineTo(x, pad.top + ch_h);
-    ctx.stroke();
-  }
-
-  // Horizontal grid + axis labels
-  const yTicks = niceScale(yMin, yMax, 6);
-  yTicks.forEach(v => {
-    const y = yOf(v);
-    if (y < pad.top || y > pad.top + ch_h) return;
-    // Grid line
-    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(pad.left, y);
-    ctx.lineTo(pad.left + cw, y);
-    ctx.stroke();
-    // Label
-    ctx.fillStyle = 'rgba(255,255,255,0.25)';
-    ctx.font = '10px ui-monospace, "SF Mono", Menlo, monospace';
-    ctx.textAlign = 'right';
-    ctx.fillText(formatAxis(v), pad.left - 8, y + 3.5);
-  });
-
-  // Zero line highlight
-  if (yMin <= 0 && yMax >= 0) {
-    const zeroY = yOf(0);
-    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([]);
-    ctx.beginPath();
-    ctx.moveTo(pad.left, zeroY);
-    ctx.lineTo(pad.left + cw, zeroY);
-    ctx.stroke();
-  } else {
-    // Center dashed line
-    const centerY = yOf((yMin + yMax) / 2);
-    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
-    ctx.setLineDash([4, 6]);
-    ctx.beginPath();
-    ctx.moveTo(pad.left, centerY);
-    ctx.lineTo(pad.left + cw, centerY);
-    ctx.stroke();
-    ctx.setLineDash([]);
-  }
-
-  // Left axis line
-  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(pad.left, pad.top);
-  ctx.lineTo(pad.left, pad.top + ch_h);
-  ctx.stroke();
-
-  ctx.restore();
-}
-
-/* ================================================================
-   MINIMAP
-   ================================================================ */
-function renderMinimap() {
-  const canvas = document.getElementById('minimapCanvas');
-  const container = document.getElementById('minimap-area');
-  const dpr = window.devicePixelRatio || 1;
-  const W = container.clientWidth;
-  const H = container.clientHeight;
-  canvas.width = W * dpr;
-  canvas.height = H * dpr;
-  canvas.style.width = W + 'px';
-  canvas.style.height = H + 'px';
-
-  const ctx = canvas.getContext('2d');
-  ctx.scale(dpr, dpr);
-  ctx.clearRect(0, 0, W, H);
-
-  const data = dataStore.history;
-  if (data.length < 2) return;
-
-  const pad = 2;
-  const mw = W - pad * 2;
-  const mh = H - pad * 2;
-
-  let yMin = Infinity, yMax = -Infinity;
-  CHANNELS.forEach(c => {
-    if (!c.visible) return;
-    data.forEach(p => {
-      const v = parseFloat(p[c.key]);
-      if (isFinite(v)) {
-        if (v < yMin) yMin = v;
-        if (v > yMax) yMax = v;
-      }
-    });
-  });
-  if (!isFinite(yMin)) return;
-  const yPadding = (yMax - yMin) * 0.05 || 1;
-  yMin -= yPadding;
-  yMax += yPadding;
-
-  const maxPts = Math.min(data.length, 400);
-  const step = Math.max(1, Math.floor(data.length / maxPts));
-
-  CHANNELS.forEach(c => {
-    if (!c.visible) return;
-    ctx.strokeStyle = hexToRGBA(c.color, 0.5);
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    let first = true;
-    for (let i = 0; i < data.length; i += step) {
-      const v = parseFloat(data[i][c.key]);
-      if (!isFinite(v)) continue;
-      const x = pad + (i / (data.length - 1)) * mw;
-      const y = pad + (1 - (v - yMin) / (yMax - yMin)) * mh;
-      if (first) { ctx.moveTo(x, y); first = false; }
-      else ctx.lineTo(x, y);
-    }
-    ctx.stroke();
-  });
-}
-
-function updateMinimapViewport() {
-  const vp = document.getElementById('minimapViewport');
-  const total = dataStore.history.length || 1;
-  const container = document.getElementById('minimap-area');
-  const W = container.clientWidth;
-  const left = (view.viewStart / total) * W;
-  const width = Math.max(8, (view.viewCount / total) * W);
-  vp.style.left = left + 'px';
-  vp.style.width = width + 'px';
-}
-
-/* ================================================================
-   UI UPDATE
-   ================================================================ */
-function updateMetricCards(latest) {
-  PRIMARY_METRICS.forEach(key => {
-    const valEl = document.getElementById(`mv-${key}`);
-    const deltaEl = document.getElementById(`md-${key}`);
-    if (!valEl) return;
-
-    const v = parseFloat(latest[key]);
-    if (!isFinite(v)) return;
-    const formatted = v.toFixed(2);
-    const prev = dataStore.prevValues[key];
-
-    if (prev != null && Math.abs(v - prev) > 0.05) {
-      valEl.classList.remove('flash');
-      void valEl.offsetWidth;
-      valEl.classList.add('flash');
-      // Card border glow
-      const card = valEl.closest('.metric-card');
-      if (card) {
-        const ch = CHANNELS[PRIMARY_METRICS.indexOf(key)];
-        card.style.setProperty('--glow-color', ch ? hexToRGBA(ch.color, 0.35) : 'rgba(100,180,255,0.25)');
-        card.classList.remove('glow-pulse');
-        void card.offsetWidth;
-        card.classList.add('glow-pulse');
-      }
-    }
-
-    valEl.textContent = formatted;
-
-    if (prev != null) {
-      const delta = v - prev;
-      const arrow = delta >= 0 ? '\u25B2' : '\u25BC';
-      deltaEl.textContent = `${arrow}${Math.abs(delta).toFixed(2)}`;
-      deltaEl.className = `mc-delta ${delta >= 0 ? 'up' : 'down'}`;
-    }
-
-    const spark = dataStore.sparklines[key];
-    spark.push(v);
-    if (spark.length > 20) spark.shift();
-    updateSparkline(key, spark);
-
-    dataStore.prevValues[key] = v;
-  });
-}
-
-function updateSparkline(key, values) {
-  if (values.length < 2) return;
-  const w = 80, h = 28;
-  let min = Infinity, max = -Infinity;
-  values.forEach(v => { if (v < min) min = v; if (v > max) max = v; });
-  const range = max - min || 1;
-  const pad = range * 0.1;
-  const yMin = min - pad, yMax = max + pad;
-
-  const pts = values.map((v, i) => ({
-    x: (i / (values.length - 1)) * w,
-    y: h - ((v - yMin) / (yMax - yMin)) * h
-  }));
-
-  let d = `M${pts[0].x.toFixed(1)},${pts[0].y.toFixed(1)}`;
-  for (let i = 0; i < pts.length - 1; i++) {
-    const p0 = pts[Math.max(0, i - 1)];
-    const p1 = pts[i];
-    const p2 = pts[i + 1];
-    const p3 = pts[Math.min(pts.length - 1, i + 2)];
-    const t = 0.3;
-    const cp1x = p1.x + (p2.x - p0.x) * t;
-    const cp1y = p1.y + (p2.y - p0.y) * t;
-    const cp2x = p2.x - (p3.x - p1.x) * t;
-    const cp2y = p2.y - (p3.y - p1.y) * t;
-    d += ` C${cp1x.toFixed(1)},${cp1y.toFixed(1)} ${cp2x.toFixed(1)},${cp2y.toFixed(1)} ${p2.x.toFixed(1)},${p2.y.toFixed(1)}`;
-  }
-
-  const linePath = document.getElementById(`spark-line-${key}`);
-  if (linePath) linePath.setAttribute('d', d);
-
-  const fillPath = document.getElementById(`spark-fill-${key}`);
-  if (fillPath) {
-    fillPath.setAttribute('d', d + ` L${pts[pts.length-1].x.toFixed(1)},${h} L${pts[0].x.toFixed(1)},${h} Z`);
-  }
-}
-
-function updateDetailPanel(latest) {
-  const badgeKeys = new Set(['bias_ok', 'bias_cal']);
-  DETAIL_GROUPS.forEach(group => {
-    group.fields.forEach(f => {
-      const el = document.getElementById(`dv-${f.key}`);
-      if (!el) return;
-      const v = latest[f.key];
-      if (v == null) return;
-
-      if (badgeKeys.has(f.key)) {
-        // Status badge rendering
-        const num = Number(v);
-        if (f.key === 'bias_ok') {
-          el.textContent = num === 1 ? 'OK' : 'WAIT';
-          el.className = 'status-badge ' + (num === 1 ? 'ok' : 'warn');
-        } else if (f.key === 'bias_cal') {
-          el.textContent = num === 1 ? 'ACTIVE' : 'IDLE';
-          el.className = 'status-badge ' + (num === 1 ? 'warn' : 'off');
-        }
-      } else {
-        el.textContent = isNaN(v) ? v : Number(v).toFixed(3);
-      }
-    });
-  });
-}
-
-function updateHeader(info) {
-  const dot = document.getElementById('connDot');
-  const label = document.getElementById('connLabel');
-  const clients = document.getElementById('clientCount');
-
-  if (dataStore.connected) {
-    if (info.running) {
-      dot.className = 'status-dot connected';
-      label.textContent = `${info.mode || 'server'} :${info.port || 9898}`;
-    } else {
-      dot.className = 'status-dot warning';
-      label.textContent = 'Idle';
-    }
-  } else {
-    dot.className = 'status-dot error';
-    label.textContent = 'Disconnected';
-  }
-  clients.textContent = `${info.connections || 0} client${info.connections !== 1 ? 's' : ''}`;
-}
-
-/* ================================================================
-   CONSOLE
-   ================================================================ */
-function consoleLog(type, tag, msg) {
-  const con = document.getElementById('console');
-  const now = new Date();
-  const ts = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
-
-  const line = document.createElement('div');
-  line.className = 'console-line';
-  line.innerHTML = `<span class="cl-time">${ts}</span><span class="cl-tag ${type}">[${tag}]</span>${escapeHtml(msg)}`;
-  con.appendChild(line);
-
-  while (con.children.length > MAX_CONSOLE_LINES) {
-    con.removeChild(con.firstChild);
-  }
+function appendLog(html) {
+  const con = document.getElementById('hud-console');
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  con.appendChild(div);
+  while (con.children.length > 500) con.removeChild(con.firstChild);
   con.scrollTop = con.scrollHeight;
 }
+function logAck(msg)  { appendLog(`<span class="pr">[${tsNow()}]</span> <span class="ack">› ${escapeHtml(msg)}</span>`); }
+function logInfo(msg) { appendLog(`<span class="pr">[${tsNow()}]</span> <span class="info">› INFO ${escapeHtml(msg)}</span>`); }
+function logErr(msg)  { appendLog(`<span class="pr">[${tsNow()}]</span> <span class="err">› ERR ${escapeHtml(msg)}</span>`); }
+function logTel(msg)  { /* suppressed by default to avoid console flooding */ }
 
-/* ================================================================
-   NETWORK / POLLING
-   ================================================================ */
-let pollTimer = null;
-let statusTimer = null;
+/* ============================================================
+ * HTTP wrappers
+ * ============================================================ */
+async function sendCmd(cmd, opts = {}) {
+  if (!opts.silent) logAck(cmd);
+  try {
+    const resp = await fetch(`${API_BASE}/command`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({command: cmd}),
+    });
+    return await resp.json();
+  } catch (e) {
+    logErr(`POST /command failed: ${e.message}`);
+    return null;
+  }
+}
+
+async function fetchStatus() {
+  try {
+    const resp = await fetch(`${API_BASE}/status`);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const info = await resp.json();
+    if (!safetyState.apiConnected) {
+      safetyState.apiConnected = true;
+      logInfo('connected to YawTuningTool backend');
+    }
+    // /status 返回 connections=N (TCP 客户端数)
+    const conns = Number(info.connections ?? info.tcp_clients ?? 0);
+    document.getElementById('clientChip').textContent = conns + ' client' + (conns === 1 ? '' : 's');
+    // 老 firmware 不发 m_tcpok 字段（必须订 MISSION 才有）；用 connections>0 兜底判 car link
+    // 一旦 MISSION 帧到达，updateLinkChip 会用真 m_tcpok 覆盖
+    if (!subscribed.has('MISSION')) {
+      safetyState.tcpOk = (conns > 0);
+    }
+    updateLinkChip();
+    return info;
+  } catch (e) {
+    if (safetyState.apiConnected) {
+      safetyState.apiConnected = false;
+      logErr('backend API lost: ' + e.message);
+    }
+    safetyState.tcpOk = false;
+    updateLinkChip();
+    return null;
+  }
+}
+
+let lastCmdResultTs = 0;
+
+/* ACK/ERR 走 cmd_result(2026-06-10 修复):/latest 顶层 _packet 只会是遥测包
+ * 类型(ACK/ERR 在后端进 custom_state/cmd_result,从不进 latest_parsed),
+ * 旧代码等 frame._packet==='ACK' 永远等不到 → TRACK DUMP 必超时、控制台
+ * 看不到任何 ACK/ERR。 */
+function handleCmdResult(cr) {
+  if (!cr || !cr.ts || cr.ts === lastCmdResultTs) return;
+  lastCmdResultTs = cr.ts;
+  const d = cr.data || {};
+  const display = Object.entries(d).filter(([k]) => k !== '_packet')
+    .map(([k, v]) => `${k}=${v}`).join(',');
+  const cmd = String(cr.cmd || '').toUpperCase();
+  if (cr.ack === 'ACK') {
+    if (cmd === 'TRACK_DUMP') {
+      const c = Number(d.count);
+      if (Number.isFinite(c)) { trackDumpAckSeen = true; trackDumpCount = c; }
+    }
+    if (cmd === 'GET_CATALOG') { parseCatalog(d.fields); }   // Free Subscribe 字段目录回填
+    logAck(display);
+  } else {
+    if (cmd === 'TRACK_DUMP') { trackDumpAckSeen = true; trackDumpCount = -1; }
+    logErr(display);
+  }
+}
 
 async function pollLatest() {
   try {
     const resp = await fetch(`${API_BASE}/latest`);
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const data = await resp.json();
+    handleCmdResult(data.cmd_result);
+    if (data.packets && typeof data.packets === 'object') {
+      /* 每流独立帧(2026-06-10 修复):顶层平铺合并后 _packet 只剩"最后到的
+       * 那个流",多流并订时其它流的新帧被遮蔽丢帧 → 改吃后端 packets={类型:帧}。 */
+      for (const ptype of Object.keys(data.packets)) {
+        const frame = data.packets[ptype];
+        if (frame && typeof frame === 'object') {
+          frame._packet = ptype;
+          onTelemetryFrame(frame);
+        }
+      }
+    } else {
+      onTelemetryFrame(data);   // 旧后端(无 packets 字段)兜底
+    }
+  } catch (e) {
+    /* status poll handles disconnect log */
+  }
+}
 
-    if (!dataStore.connected) {
-      dataStore.connected = true;
-      consoleLog('ok', 'Net', 'Connected to backend API');
+/* ============================================================
+ * Telemetry frame → stream/field dispatch
+ * ============================================================ */
+let lastSeenMs = {};   // stream → last ms timestamp seen (de-dup repeated /latest hits)
+
+function onTelemetryFrame(frame) {
+  if (!frame || typeof frame !== 'object') return;
+
+  // ACK/ERR 不再走这里(见 handleCmdResult)— /latest 的 _packet 永远是遥测类型
+  const type = frame._packet ? String(frame._packet).toUpperCase() : '';
+  const streamName = PREFIX_TO_STREAM[type];
+  if (!streamName) return;
+  /* 2026-05-26 §6.4 — Auto-subscribe streams arriving via backend (e.g. someone
+   * curl-ed START STREAM TURN 50 without opening the UI first). Without this,
+   * packets sat in `/latest` but `subscribed` set was empty → chart/display/legend
+   * never drew them. Now any first packet auto-registers its stream in the UI.
+   * Same body as toggleSubscribe (line 842-855) minus the sendCmd (backend
+   * already started the stream). */
+  if (!subscribed.has(streamName)) {
+    subscribed.add(streamName);
+    /* 订阅只进数据,不自动把全流字段画成线(默认 visible=false)。
+     * 画哪条线由用户点图例 / 点卡片行单独选,选时才 allocPlotColor 分配独立色。 */
+    renderStreams();
+    renderDisplay();
+    buildChartLegend();
+    updateLinkChip();
+  }
+
+  // De-dup: only update if frame's `ms` field changed
+  const ms = (frame.ms != null) ? Number(frame.ms) : null;
+  if (ms != null && lastSeenMs[streamName] === ms) return;
+  if (ms != null) lastSeenMs[streamName] = ms;
+
+  // Push numeric fields into both spark buf and chart buf
+  const def = STREAMS[streamName];
+  if (!def) return;
+  /* SEL 自描述:fields 正常由 GET CATALOG+勾选填充;若 curl 直发 SUB SET 或重连丢了
+   * 勾选状态导致 fields 空,用帧自身数值 keys 重建,保证 SEL 永远可显示/可画。 */
+  if (def.dynamic && (!def.fields || def.fields.length === 0)) {
+    const fkeys = Object.keys(frame).filter(k => k !== '_packet' && k !== 'ms');
+    if (fkeys.length) {
+      def.fields = fkeys.map(k => ({ key:k, label:k, type:'num' }));
+      renderDisplay();
+      buildChartLegend();
+    }
+  }
+  def.fields.forEach(f => {
+    if (f.type !== 'num') return;
+    const raw = frame[f.key];
+    if (raw == null || raw === '') return;
+    const v = Number(raw);
+    if (!Number.isFinite(v)) return;
+    pushToBuf(sparkBuf, f.key, v, SPARK_N);
+    pushToBuf(chartBuf, f.key, v, CHART_N, /*onShift*/ () => {
+      if (!isLive) frozenEndIdx = Math.max(10, frozenEndIdx - 1);
+    });
+  });
+
+  // MISSION extras: drive replay state machine + safety chips + trail
+  if (streamName === 'MISSION') {
+    const mst    = +(frame.m_st ?? 0);
+    const meng   = +(frame.m_eng ?? 0);
+    const cpx    = parseFloat(frame.m_cpx);
+    const cpy    = parseFloat(frame.m_cpy);
+    const tcpok  = +(frame.m_tcpok ?? 1);
+    const hbok   = +(frame.m_hbok ?? 1);
+    const lostsrc= +(frame.m_lostsrc ?? 0);
+
+    // Derive replayState from m_st (3=RETURN, 1=EVENT1 → RUNNING; 4=ABORT → STOPPED; 0=IDLE → IDLE)
+    const prev = trajState.replayState;
+    if ((mst === 1 || mst === 3) && meng) {
+      trajState.replayState = 'RUNNING';
+    } else if (mst === 4) {
+      trajState.replayState = 'STOPPED';
+    } else if (mst === 0) {
+      trajState.replayState = (prev === 'RUNNING') ? 'STOPPED' : 'IDLE';
+    }
+    if (prev !== trajState.replayState) {
+      onReplayStateChanged(prev, trajState.replayState, lostsrc);
     }
 
-    dataStore.history.push(data);
-    if (dataStore.history.length > MAX_DATA_POINTS) {
-      const trimCount = dataStore.history.length - MAX_DATA_POINTS;
-      dataStore.history.splice(0, trimCount);
-      view.viewStart = Math.max(0, view.viewStart - trimCount);
-    }
-
-    if (view.autoFollow) {
-      view.viewStart = Math.max(0, dataStore.history.length - view.viewCount);
-    }
-
-    updateMetricCards(data);
-    updateDetailPanel(data);
-    requestChartRender();
-
-    if (data.cmd_result && Object.keys(data.cmd_result).length > 0) {
-      const cr = data.cmd_result;
-      const crKey = JSON.stringify(cr);
-      if (crKey !== JSON.stringify(dataStore.lastCmdResult) && Object.keys(cr).length > 0) {
-        dataStore.lastCmdResult = cr;
-        const display = Object.entries(cr).map(([k, v]) => `${k}=${v}`).join(' ');
-        if (display) consoleLog('ok', 'Result', display);
+    // Push to live trail when running (only valid cpx/cpy)
+    if (trajState.replayState === 'RUNNING' && Number.isFinite(cpx) && Number.isFinite(cpy)) {
+      // In firmware coordinates X right/Y up → SVG y inverted; do simple mapping later in draw.
+      trajState.trailPts.push({px: cpx, py: cpy});
+      if (trajState.trailPts.length > 5000) trajState.trailPts.shift();
+      // 对齐点对:目标点(live 系) ↔ 录制点[idx](文件系)。Map 按 idx 去重。
+      const tpx = parseFloat(frame.m_tpx), tpy = parseFloat(frame.m_tpy);
+      const idx = Math.round(+(frame.m_idx ?? -1));
+      if (Number.isFinite(tpx) && Number.isFinite(tpy) && idx >= 0) {
+        if (!trajState.alignPairs.has(idx)) trajState.alignDirty++;
+        trajState.alignPairs.set(idx, {x: tpx, y: tpy});
+        /* 每攒 5 个新点对重算;首解尽早出(求解器自身还要求 ≥5 对且 idx 跨度 ≥8) */
+        if (trajState.alignDirty >= 5) { computeAlignment(); trajState.alignDirty = 0; }
       }
     }
-  } catch (err) {
-    if (dataStore.connected) {
-      dataStore.connected = false;
-      consoleLog('error', 'Net', 'Connection lost: ' + err.message);
-      updateHeader(dataStore.serverInfo);
-    }
+
+    // Safety chips
+    safetyState.tcpOk = (tcpok !== 0);
+    safetyState.hbOk  = (hbok !== 0);
+    safetyState.lostSrc = lostsrc;
+    updateLinkChip();
+
+  }
+
+  frameCount++;
+}
+
+function pushToBuf(store, key, v, cap, onShift) {
+  if (!store[key]) store[key] = [];
+  const b = store[key];
+  b.push(v);
+  if (b.length > cap) {
+    b.shift();
+    if (onShift) onShift();
   }
 }
 
-async function pollStatus() {
-  try {
-    const resp = await fetch(`${API_BASE}/status`);
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const info = await resp.json();
-    dataStore.serverInfo = info;
-    dataStore.connected = true;
-    updateHeader(info);
-  } catch (err) {
-    // Handled in pollLatest
+/* ============================================================
+ * Subscribe panel
+ * ============================================================ */
+function renderStreams() {
+  const wrap = document.getElementById('streams');
+  wrap.innerHTML = '';
+  /* SEL(dynamic) 不进预设流 chips:它由 Free Subscribe 面板的勾选+APPLY 控制。 */
+  const presetNames = Object.keys(STREAMS).filter(name => !STREAMS[name].dynamic);
+  presetNames.forEach(name => {
+    const el = document.createElement('div');
+    el.className = 'hud-stream' + (subscribed.has(name) ? ' on' : '');
+    const period = streamPeriods[name] ?? STREAMS[name].defaultPeriod;
+    el.innerHTML = `${name}<span class="ms">${period}</span>`;
+    el.onclick = () => toggleSubscribe(name);
+    el.oncontextmenu = (e) => { e.preventDefault(); promptPeriod(name); };
+    wrap.appendChild(el);
+  });
+  const presetSub = presetNames.filter(n => subscribed.has(n)).length;
+  document.getElementById('subCount').textContent = `${presetSub}/${presetNames.length} ACTIVE`;
+}
+
+async function toggleSubscribe(name) {
+  const period = streamPeriods[name] ?? STREAMS[name].defaultPeriod;
+  if (subscribed.has(name)) {
+    subscribed.delete(name);
+    await sendCmd(`STOP STREAM ${name}`);
+  } else {
+    subscribed.add(name);
+    await sendCmd(`START STREAM ${name} ${period}`);
+  }
+  renderStreams();
+  renderDisplay();
+  updateLinkChip();   // MISSION 订阅状态变化会影响 HB chip 显示
+  /* 取消订阅时把该流字段的画线一并关掉(数据停了,留着图例没意义);
+   * 订阅不自动开线 —— 由用户点选。 */
+  if (!subscribed.has(name)) {
+    STREAMS[name].fields.forEach(f => { chartChanVisible[f.key] = false; });
+  }
+  buildChartLegend();
+}
+
+function promptPeriod(name) {
+  const cur = streamPeriods[name] ?? STREAMS[name].defaultPeriod;
+  const v = prompt(`${name} 周期 (ms, 5~5000):`, cur);
+  if (!v) return;
+  const ms = parseInt(v, 10);
+  if (Number.isNaN(ms) || ms < 5 || ms > 5000) { logErr(`bad period: ${v}`); return; }
+  streamPeriods[name] = ms;
+  renderStreams();
+  if (subscribed.has(name)) {
+    sendCmd(`STOP STREAM ${name}`);
+    sendCmd(`START STREAM ${name} ${ms}`);
   }
 }
 
-async function sendCommand(cmd) {
-  consoleLog('cmd', 'Cmd', `Sending: ${cmd}`);
-  try {
-    const resp = await fetch(`${API_BASE}/command`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ command: cmd }),
+/* ============================================================
+ * Free Subscribe (SEL) — 字段级自由组合订阅
+ * GET CATALOG 拉字段目录 → 复选框勾选 → SUB SET csv [period]。车端把勾选字段打成
+ * 一帧 TELSEL(一个 g_monotonic_ms 时间戳)发出 → 跨子系统量同拍对齐定位问题。
+ * 复用 SEL 作为 STREAMS 一等流:APPLY 后设 STREAMS.SEL.fields,数据/卡片/图表/
+ * togglePlot 全继承现有引擎,无需新渲染管线。
+ * ============================================================ */
+let catalogFields = [];          // [{key, type}] 来自 GET CATALOG
+const selChecked = new Set();    // 当前勾选的字段 key
+
+async function loadCatalog() {
+  /* 响应经 handleCmdResult → parseCatalog 异步回填 catalogFields + 重渲染面板。 */
+  try { await sendCmd('GET CATALOG', {silent: true}); } catch (e) {}
+}
+
+function parseCatalog(fieldsStr) {
+  if (!fieldsStr) return;
+  catalogFields = String(fieldsStr).split('/').map(tok => {
+    const [key, type] = tok.split(':');
+    return { key, type: type || 'F3' };
+  }).filter(f => f.key);
+  renderFreeSubscribePanel();
+}
+
+function renderFreeSubscribePanel() {
+  const grid = document.getElementById('freeSubGrid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  if (catalogFields.length === 0) {
+    grid.innerHTML = '<span class="freesub-hint">— 点 ↻ CAT 拉取字段目录 —</span>';
+  } else {
+    catalogFields.forEach(f => {
+      const chip = document.createElement('span');
+      chip.className = 'fs-chip' + (selChecked.has(f.key) ? ' on' : '');
+      chip.title = f.type;
+      const name = document.createElement('span'); name.textContent = f.key;
+      const ty = document.createElement('span'); ty.className = 'ty'; ty.textContent = f.type;
+      chip.appendChild(name); chip.appendChild(ty);
+      chip.onclick = () => {
+        if (selChecked.has(f.key)) selChecked.delete(f.key); else selChecked.add(f.key);
+        chip.classList.toggle('on');
+        document.getElementById('freeSubCount').textContent = `${selChecked.size} sel`;
+      };
+      grid.appendChild(chip);
     });
-    const result = await resp.json();
-    if (result.error) {
-      consoleLog('error', 'Cmd', result.error);
-    } else {
-      consoleLog('ok', 'Cmd', `Sent: ${result.command}`);
+  }
+  document.getElementById('freeSubCount').textContent = `${selChecked.size} sel`;
+}
+
+async function applyFreeSubscribe() {
+  const keys = [...selChecked];
+  if (keys.length === 0) { await clearFreeSubscribe(); return; }
+  let period = parseInt(document.getElementById('freeSubPeriod').value, 10);
+  if (Number.isNaN(period) || period < 20) period = 100;
+  if (period > 5000) period = 5000;
+  /* 关掉离开本次选择的旧字段的画线(否则下次重选该字段会带旧色+旧缓存数据复现)。 */
+  const next = new Set(keys);
+  (STREAMS.SEL.fields || []).forEach(f => { if (!next.has(f.key)) chartChanVisible[f.key] = false; });
+  /* SEL 字段全按 num(可画);catalog 的 F2/F3/F4/I32/U32 都是数值。 */
+  STREAMS.SEL.fields = keys.map(k => ({ key:k, label:k, type:'num' }));
+  await sendCmd(`SUB SET ${keys.join(',')} ${period}`);
+  subscribed.add('SEL');
+  renderDisplay();
+  buildChartLegend();
+  updateLinkChip();
+}
+
+async function clearFreeSubscribe() {
+  await sendCmd('SUB CLEAR');
+  subscribed.delete('SEL');
+  STREAMS.SEL.fields.forEach(f => { chartChanVisible[f.key] = false; });
+  STREAMS.SEL.fields = [];
+  renderDisplay();
+  buildChartLegend();
+}
+
+function bindFreeSubscribe() {
+  const a = document.getElementById('freeSubApply');
+  const c = document.getElementById('freeSubClear');
+  const r = document.getElementById('freeSubReload');
+  if (a) a.onclick = applyFreeSubscribe;
+  if (c) c.onclick = clearFreeSubscribe;
+  if (r) r.onclick = loadCatalog;
+}
+
+/* ============================================================
+ * Display panel
+ * ============================================================ */
+function renderDisplay() {
+  const root = document.getElementById('hud-display');
+  root.innerHTML = '';
+  if (subscribed.size === 0) {
+    root.innerHTML = '<div class="hud-display-empty">— click a stream above to subscribe —</div>';
+    document.getElementById('dispCount').textContent = 'no streams';
+    return;
+  }
+  document.getElementById('dispCount').textContent = `${subscribed.size} stream${subscribed.size===1?'':'s'}`;
+  subscribed.forEach(name => root.appendChild(renderCard(name)));
+  refreshCardPlotMarks();   // 重建后同步 plot-dot 亮灭 / spark 色
+}
+
+function renderCard(name) {
+  const def = STREAMS[name];
+  const card = document.createElement('div');
+  card.className = `hud-card s-${name.toLowerCase()}`;
+  const period = streamPeriods[name] ?? def.defaultPeriod;
+  const hdr = document.createElement('div');
+  hdr.className = 'hud-card-hdr';
+  hdr.innerHTML = `<span class="name">${name}</span><span class="meta">${period}ms</span>`;
+  card.appendChild(hdr);
+  if (def.actions) card.appendChild(renderReplayActions(def));
+  const collapseN = def.collapseAfter || 999;
+  def.fields.forEach((f, i) => {
+    if (i >= collapseN) return;
+    card.appendChild(renderRow(name, f));
+  });
+  if (def.fields.length > collapseN) {
+    const more = document.createElement('div');
+    more.className = 'hud-more';
+    more.textContent = `+ ${def.fields.length - collapseN} more  ↓`;
+    more.onclick = () => {
+      def.fields.slice(collapseN).forEach(f => card.appendChild(renderRow(name, f)));
+      more.remove();
+      refreshCardPlotMarks();   // 展开的行同步 plot-dot
+    };
+    card.appendChild(more);
+  }
+  return card;
+}
+
+function renderReplayActions(def) {
+  const wrap = document.createElement('div');
+  wrap.className = 'hud-tune';
+  wrap.innerHTML = `<div class="hud-tune-title">▸ REPLAY CONTROL</div>`;
+  const btns = document.createElement('div');
+  btns.className = 'hud-replay-btns';
+  btns.innerHTML = `
+    <button class="start" data-act="start">${def.actions.start.label}</button>
+    <button class="stop"  data-act="stop">${def.actions.stop.label}</button>
+  `;
+  btns.querySelector('[data-act=start]').onclick = () => replayStart();
+  btns.querySelector('[data-act=stop]').onclick  = () => requestStop('button');
+  wrap.appendChild(btns);
+  setTimeout(refreshReplayButtons, 0);
+  return wrap;
+}
+
+function renderRow(streamName, f) {
+  const row = document.createElement('div');
+  row.className = 'hud-row';
+  if (f.type === 'bool') {
+    row.innerHTML = `
+      <span class="k">${f.key}</span>
+      <span class="booltag">bool</span>
+      <span class="hud-badge off" data-bool="${f.key}">--</span>
+    `;
+  } else if (f.type === 'enum') {
+    row.innerHTML = `
+      <span class="k">${f.key}</span>
+      <span class="booltag">enum</span>
+      <span class="hud-badge off" data-enum="${f.key}">--</span>
+    `;
+  } else {
+    /* 数值行可点选画线:行首一个 plot-dot(灭=未画,亮=已画显示该线色),
+     * spark 用该字段独立色(已选时)否则流默认色。点整行切换。 */
+    row.classList.add('plottable');
+    row.dataset.plotKey = f.key;
+    const sparkColor = isPlotted(f.key) ? (chartChanColor[f.key] || STREAMS[streamName].color)
+                                        : STREAMS[streamName].color;
+    row.innerHTML = `
+      <span class="k"><i class="plot-dot" data-plotdot="${f.key}"></i>${f.key}</span>
+      <svg class="spark" viewBox="0 0 100 14" preserveAspectRatio="none" style="color:${sparkColor}">
+        <path d="" stroke="currentColor" fill="none" stroke-width="1.4" data-spark="${f.key}"/>
+      </svg>
+      <span class="v" data-num="${f.key}">--</span>
+    `;
+    if (f.severity) row.dataset.severity = JSON.stringify(f.severity);
+    row.title = '点击：在图表上画/取消此线';
+    row.addEventListener('click', () => togglePlot(f.key));
+  }
+  return row;
+}
+
+/* 刷新所有卡片行的 plot-dot 亮灭 + spark 颜色(选/取消线后调) */
+function refreshCardPlotMarks() {
+  document.querySelectorAll('[data-plotdot]').forEach(dot => {
+    const key = dot.dataset.plotdot;
+    const on = isPlotted(key);
+    const color = chartChanColor[key] || '#46c2a5';
+    dot.style.background = on ? color : 'transparent';
+    dot.style.borderColor = on ? color : 'var(--ink-mute)';
+    dot.style.boxShadow = 'none';
+  });
+  document.querySelectorAll('.hud-row.plottable').forEach(row => {
+    const key = row.dataset.plotKey;
+    const spark = row.querySelector('.spark');
+    if (!spark) return;
+    if (isPlotted(key)) spark.style.color = chartChanColor[key] || '#46c2a5';
+    else {
+      // 回流默认色
+      for (const name of subscribed) {
+        if (STREAMS[name].fields.some(f => f.key === key)) { spark.style.color = STREAMS[name].color; break; }
+      }
     }
-  } catch (err) {
-    consoleLog('error', 'Cmd', 'Failed: ' + err.message);
+  });
+}
+
+/* Repaint DOM from latest values in sparkBuf + raw frame (for bool/enum). */
+function paintDisplay() {
+  // numeric
+  for (const key in sparkBuf) {
+    const buf = sparkBuf[key];
+    if (!buf || buf.length === 0) continue;
+    const v = buf[buf.length - 1];
+    document.querySelectorAll(`[data-num="${key}"]`).forEach(el => {
+      el.textContent = Math.abs(v) < 10 ? v.toFixed(2) : v.toFixed(1);
+      const row = el.closest('.hud-row');
+      if (row && row.dataset.severity) {
+        const sev = JSON.parse(row.dataset.severity);
+        row.classList.remove('warn', 'crit');
+        if (sev.critAbs && Math.abs(v) >= sev.critAbs) row.classList.add('crit');
+        else if (sev.warnAbs && Math.abs(v) >= sev.warnAbs) row.classList.add('warn');
+      }
+    });
+    document.querySelectorAll(`[data-spark="${key}"]`).forEach(p => p.setAttribute('d', sparkPath(buf, 100, 14)));
   }
 }
 
-async function loadHistory() {
+/* Update bool / enum badges from the latest frame (called on each frame arrival). */
+function paintBoolEnum(frame, streamName) {
+  const def = STREAMS[streamName];
+  if (!def) return;
+  def.fields.forEach(f => {
+    const v = frame[f.key];
+    if (v == null) return;
+    if (f.type === 'bool') {
+      document.querySelectorAll(`[data-bool="${f.key}"]`).forEach(el => {
+        const on = (Number(v) !== 0);
+        el.className = 'hud-badge ' + (on ? 'on' : 'off');
+        el.textContent = on ? 'ON' : 'OFF';
+      });
+    } else if (f.type === 'enum') {
+      const enumDef = def.stateEnum || {};
+      const k = Math.round(Number(v));
+      const label = enumDef[k] || String(k);
+      const cls = (k === 4) ? 'crit' : (k === 1 || k === 3) ? 'event' : 'off';
+      document.querySelectorAll(`[data-enum="${f.key}"]`).forEach(el => {
+        el.className = 'hud-badge ' + cls;
+        el.textContent = label;
+      });
+    }
+  });
+}
+
+/* ============================================================
+ * Chart
+ * ============================================================ */
+function sparkPath(buf, w, h) {
+  if (buf.length < 2) return '';
+  const min = Math.min(...buf), max = Math.max(...buf), span = (max - min) || 1;
+  const stepX = w / (buf.length - 1);
+  return buf.map((v, i) => `${i === 0 ? 'M' : 'L'}${(i * stepX).toFixed(1)},${(h - 1 - ((v - min) / span) * (h - 2)).toFixed(1)}`).join(' ');
+}
+
+function maxBufLen() {
+  let m = 0;
+  for (const k of Object.keys(chartBuf)) if (chartBuf[k].length > m) m = chartBuf[k].length;
+  return m;
+}
+
+function visibleWindow(bufLen) {
+  const windowSize = Math.max(2, Math.floor(CHART_N / zoomLevel));
+  const endIdx = isLive ? bufLen : Math.max(2, Math.min(bufLen, frozenEndIdx));
+  const startIdx = Math.max(0, endIdx - windowSize);
+  return { startIdx, endIdx, windowSize };
+}
+
+function panBy(dxPts) {
+  const refLen = maxBufLen();
+  if (refLen < 10) return;
+  if (isLive) { frozenEndIdx = refLen; isLive = false; }
+  frozenEndIdx = Math.round(frozenEndIdx - dxPts);
+  if (frozenEndIdx >= refLen) { frozenEndIdx = refLen; isLive = true; }
+  const windowSize = Math.max(2, Math.floor(CHART_N / zoomLevel));
+  if (frozenEndIdx < Math.min(windowSize, refLen)) frozenEndIdx = Math.min(windowSize, refLen);
+}
+
+function panToAbs(absEndIdx) {
+  const refLen = maxBufLen();
+  if (refLen < 10) return;
+  if (absEndIdx >= refLen) { isLive = true; frozenEndIdx = refLen; }
+  else { isLive = false; frozenEndIdx = Math.max(10, Math.round(absEndIdx)); }
+}
+
+/* 字段是否正在画线(默认 false=不画;选了才画) */
+function isPlotted(key) { return chartChanVisible[key] === true; }
+
+/* 切换某字段画线:开则分配独立色,关则清掉(色释放回调色板)。
+ * 图例 + 卡片行共用,改完两边都刷新。 */
+function togglePlot(key) {
+  if (isPlotted(key)) {
+    chartChanVisible[key] = false;
+  } else {
+    chartChanVisible[key] = true;
+    allocPlotColor(key);
+  }
+  buildChartLegend();
+  refreshCardPlotMarks();
+}
+
+/* 图例只列"正在画线"的字段(干净,每条带独立色);点一下移除该线。 */
+function buildChartLegend() {
+  const legend = document.getElementById('chartLegend');
+  legend.innerHTML = '';
+  const keys = [];
+  subscribed.forEach(name => {
+    STREAMS[name].fields.forEach(f => {
+      if (f.type === 'num' && isPlotted(f.key) && !keys.includes(f.key)) keys.push(f.key);
+    });
+  });
+  if (keys.length === 0) { legend.style.display = 'none'; return; }
+  legend.style.display = '';
+  keys.forEach(k => {
+    const color = chartChanColor[k] || '#46c2a5';
+    const item = document.createElement('div');
+    item.title = '点击移除此线';
+    item.innerHTML = `<span class="sw" style="background:${color};color:${color}"></span><span style="color:${color}">${k}</span>`;
+    item.onclick = () => togglePlot(k);
+    legend.appendChild(item);
+  });
+}
+
+function updateChart() {
+  if (chartMode !== 'time') return;
+  const W = 800, H = 380;
+  const svg = document.getElementById('chartSvg');
+
+  // Drop any previous trajectory artifacts that may have lingered
+  ['trajPath','trajOrig','trajOpt','trajTrail','trajXte','trajStartDot','trajCar','trajCarHalo','trajLaDot','trajAxis','trajLegend','trajStatusGroup']
+    .forEach(id => { const el = document.getElementById(id); if (el) el.remove(); });
+
+  // Get visible window
+  const refLen = maxBufLen();
+  const { startIdx, endIdx } = visibleWindow(refLen);
+
+  // 只画用户点选的字段(isPlotted),不再是全流字段
+  const seriesKeys = [];
+  subscribed.forEach(name => {
+    STREAMS[name].fields.forEach(f => {
+      if (f.type === 'num' && isPlotted(f.key) && !seriesKeys.includes(f.key)) seriesKeys.push(f.key);
+    });
+  });
+
+  // Ensure SVG path elements exist for each series
+  seriesKeys.forEach(key => {
+    let p = document.getElementById('chart-series-' + key);
+    if (!p) {
+      p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      p.id = 'chart-series-' + key;
+      p.setAttribute('fill', 'none');
+      p.setAttribute('stroke', chartChanColor[key] || '#46c2a5');
+      p.setAttribute('stroke-width', '1.4');
+      p.style.color = chartChanColor[key] || '#46c2a5';
+      svg.appendChild(p);
+    }
+  });
+  // Remove series no longer in subscribed
+  Array.from(svg.querySelectorAll('[id^="chart-series-"]')).forEach(p => {
+    const key = p.id.replace('chart-series-', '');
+    if (!seriesKeys.includes(key)) p.remove();
+  });
+
+  // Render each visible series
+  seriesKeys.forEach(key => {
+    const buf = chartBuf[key];
+    if (!buf || buf.length < 2) return;
+    const sliceEnd = Math.min(buf.length, endIdx);
+    const sliceStart = Math.max(0, sliceEnd - (endIdx - startIdx));
+    const slice = buf.slice(sliceStart, sliceEnd);
+    if (slice.length < 2) return;
+    const min = Math.min(...slice), max = Math.max(...slice), s = (max - min) || 1;
+    const stepX = W / (slice.length - 1);
+    const d = slice.map((v, i) => `${i === 0 ? 'M' : 'L'}${(i * stepX).toFixed(1)},${(H - 20 - ((v - min) / s) * (H - 40)).toFixed(1)}`).join(' ');
+    const p = document.getElementById('chart-series-' + key);
+    if (p) p.setAttribute('d', d);
+  });
+
+  // Empty hint
+  document.getElementById('chartEmpty').style.display = (seriesKeys.length === 0) ? '' : 'none';
+
+  // Minimap
+  updateMinimap(refLen, startIdx, endIdx, seriesKeys[0]);
+}
+
+function updateMinimap(refLen, startIdx, endIdx, refKey) {
+  const W = 1000, H = 38;
+  if (!refKey || !chartBuf[refKey] || chartBuf[refKey].length < 2) {
+    document.getElementById('miniLine').setAttribute('d','');
+    document.getElementById('miniArea').setAttribute('d','');
+  } else {
+    const buf = chartBuf[refKey];
+    const target = 200;
+    const stride = Math.max(1, Math.floor(buf.length / target));
+    const pts = [];
+    for (let i = 0; i < buf.length; i += stride) pts.push(buf[i]);
+    if (pts.length >= 2) {
+      const min = Math.min(...pts), max = Math.max(...pts), s = (max - min) || 1;
+      const stepX = W / (pts.length - 1);
+      let d = '';
+      pts.forEach((v, i) => { d += `${i === 0 ? 'M' : 'L'}${(i * stepX).toFixed(1)},${(H - 3 - ((v - min) / s) * (H - 6)).toFixed(1)} `; });
+      const area = `M0,${H} ${d.replace(/M/, 'L')} L${W},${H} Z`;
+      document.getElementById('miniLine').setAttribute('d', d);
+      document.getElementById('miniArea').setAttribute('d', area);
+    }
+  }
+  const vp = document.getElementById('minimapViewport');
+  if (refLen < 2) { vp.style.left = '0%'; vp.style.width = '100%'; }
+  else {
+    vp.style.left = ((startIdx / refLen) * 100) + '%';
+    vp.style.width = (((endIdx - startIdx) / refLen) * 100) + '%';
+  }
+  const liveTag = document.getElementById('miniLive');
+  const liveBadge = document.getElementById('liveBadge');
+  liveTag.classList.toggle('paused', !isLive);
+  liveTag.textContent = isLive ? '● LIVE' : '⏸ PAUSED';
+  liveBadge.textContent = isLive ? '● LIVE' : '⏸ PAUSED';
+  liveBadge.style.color = isLive ? 'var(--green)' : 'var(--amber)';
+  liveBadge.style.textShadow = isLive ? '0 0 6px transparent' : '0 0 6px transparent';
+  document.getElementById('zoomLabel').textContent = zoomLevel.toFixed(1) + '×';
+}
+
+/* ============================================================
+ * Mode tabs
+ * ============================================================ */
+document.getElementById('modeTime').onclick = () => setMode('time');
+document.getElementById('modeTraj').onclick = () => setMode('traj');
+
+function setMode(m) {
+  chartMode = m;
+  document.getElementById('modeTime').classList.toggle('active', m === 'time');
+  document.getElementById('modeTraj').classList.toggle('active', m === 'traj');
+  document.getElementById('btnFit').style.display = m === 'traj' ? '' : 'none';
+  document.getElementById('btnFetch').style.display = m === 'traj' ? '' : 'none';
+  document.getElementById('trajCmpBar').style.display = m === 'traj' ? 'flex' : 'none';
+  if (m === 'traj') ensurePathsListLoaded();
+  document.querySelector('.hud-zoom').style.display = m === 'time' ? '' : 'none';
+  document.getElementById('minimap').style.display = m === 'time' ? '' : 'none';
+  document.getElementById('chartLegend').style.display = m === 'time' ? '' : 'none';
+  document.getElementById('chartEmpty').style.display = (m === 'time' && countSeriesKeys() === 0) ? '' : 'none';
+  document.getElementById('trajEmpty').style.display = 'none';
+
+  if (m === 'time') {
+    clearTrajectoryDom();
+  } else {
+    // entering traj
+    Array.from(document.getElementById('chartSvg').querySelectorAll('[id^="chart-series-"]')).forEach(p => p.remove());
+    ensureTrajectory();
+  }
+  updateFloatingStop();
+}
+
+function countSeriesKeys() {
+  let n = 0;
+  subscribed.forEach(name => {
+    STREAMS[name].fields.forEach(f => { if (f.type === 'num' && isPlotted(f.key)) n++; });
+  });
+  return n;
+}
+
+/* ============================================================
+ * Trajectory
+ * ============================================================ */
+function ensureTrajectory() {
+  const svg = document.getElementById('chartSvg');
+  if (!document.getElementById('trajAxis')) {
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    g.id = 'trajAxis';
+    g.innerHTML = `<text x="14" y="20" fill="rgba(140,170,210,0.5)" font-family="Consolas,monospace" font-size="10">Y (m)</text>
+      <text x="755" y="370" fill="rgba(140,170,210,0.5)" font-family="Consolas,monospace" font-size="10">X (m) →</text>`;
+    svg.appendChild(g);
+  }
+  if (!document.getElementById('trajStatusGroup')) {
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    g.id = 'trajStatusGroup';
+    g.setAttribute('transform', 'translate(14, 360)');
+    g.innerHTML = `<rect x="0" y="-18" width="220" height="24" rx="2" fill="rgba(14,18,24,0.85)" stroke="rgba(139,155,180,0.45)"/>
+      <text id="trajStatusText" x="8" y="-3" fill="#46c2a5" font-family="Consolas,monospace" font-size="11" letter-spacing="2px">◆ INIT</text>`;
+    svg.appendChild(g);
+  }
+  addSvgIf(svg, 'trajPath',      { stroke:'#a883e8', 'stroke-width':'1.6', fill:'none', opacity:'0.40', 'stroke-dasharray':'4,3' }, 'path');
+  addSvgIf(svg, 'trajOrig',      { stroke:'#5b9dd9', 'stroke-width':'2',   fill:'none', opacity:'0.85' }, 'path');
+  addSvgIf(svg, 'trajOpt',       { stroke:'#e0708f', 'stroke-width':'2',   fill:'none', opacity:'0.9'  }, 'path');
+  addSvgIf(svg, 'trajTrail',     { stroke:'#58c47c', 'stroke-width':'2.4', fill:'none' }, 'path');
+  addSvgIf(svg, 'trajStartDot',  { r:'5', fill:'none', stroke:'#58c47c', 'stroke-width':'1.5', cx:'0', cy:'0' }, 'circle');
+  addSvgIf(svg, 'trajCarHalo',   { r:'12', fill:'none', stroke:'#ffb454', 'stroke-width':'1', opacity:'0.5', cx:'0', cy:'0' }, 'circle');
+  addSvgIf(svg, 'trajCar',       { r:'5', fill:'#ffb454', cx:'0', cy:'0' }, 'circle');
+  ensureTrajLegend();
+}
+
+function addSvgIf(parent, id, attrs, tag) {
+  if (document.getElementById(id)) return;
+  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  el.id = id;
+  for (const k in attrs) el.setAttribute(k, attrs[k]);
+  if (attrs.stroke && tag === 'path') el.style.color = attrs.stroke;
+  parent.appendChild(el);
+}
+
+function ensureTrajLegend() {
+  if (document.getElementById('trajLegend')) return;
+  const svg = document.getElementById('chartSvg');
+  const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  g.id = 'trajLegend';
+  const clip = (s) => s.length > 20 ? s.slice(0, 19) + '…' : s;
+  const esc = (s) => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const rows = [
+    { line: {stroke:'#a883e8', width:1.6, dash:'4,3', opacity:0.5}, color:'#a883e8', label:'recorded (ghost)' },
+  ];
+  if (trajState.origPts.length) rows.push(
+    { line: {stroke:'#5b9dd9', width:2}, color:'#5b9dd9', label:'orig ' + clip(trajState.origName) });
+  if (trajState.optPts.length) rows.push(
+    { line: {stroke:'#e0708f', width:2}, color:'#e0708f', label:'opt ' + clip(trajState.optName) });
+  rows.push({ line: {stroke:'#58c47c', width:2.4}, color:'#58c47c', label:'live trail' });
+  let body = '';
+  rows.forEach((r, i) => {
+    const y = 16 + i * 18;
+    body += `<line x1="10" y1="${y}" x2="30" y2="${y}" stroke="${r.line.stroke}" stroke-width="${r.line.width}"`
+          + (r.line.dash ? ` stroke-dasharray="${r.line.dash}"` : '')
+          + (r.line.opacity ? ` opacity="${r.line.opacity}"` : '') + '/>'
+          + `<text x="36" y="${y + 4}" fill="${r.color}" font-family="Consolas,monospace" font-size="10">${esc(r.label)}</text>`;
+  });
+  const carY = 16 + rows.length * 18;
+  body += `<circle cx="20" cy="${carY}" r="4" fill="#ffb454"/>`
+        + `<text x="36" y="${carY + 4}" fill="#ffb454" font-family="Consolas,monospace" font-size="10">car</text>`;
+  const H = carY + 12;
+  g.setAttribute('transform', 'translate(590, 14)');
+  g.innerHTML = `<rect x="0" y="0" width="200" height="${H}" rx="2" fill="rgba(14,18,24,0.85)" stroke="rgba(139,155,180,0.45)"/>` + body;
+  svg.appendChild(g);
+}
+
+/* 文件槽变化后重建图例(行数/文件名会变) */
+function rebuildTrajLegend() {
+  const g = document.getElementById('trajLegend');
+  if (g) g.remove();
+  if (chartMode === 'traj') ensureTrajLegend();
+}
+
+function clearTrajectoryDom() {
+  ['trajPath','trajOrig','trajOpt','trajTrail','trajStartDot','trajCar','trajCarHalo','trajAxis','trajLegend','trajStatusGroup']
+    .forEach(id => { const el = document.getElementById(id); if (el) el.remove(); });
+}
+
+/* Convert firmware (px, py) in meters to SVG (x, y) using current path bounds.
+ * Auto-fit: include both ghost path and trail in bounds. */
+function trajWorldToSvg(px, py, bounds) {
+  const W = 800, H = 380, PAD = 30;
+  const sx = (W - 2 * PAD) / Math.max(0.01, bounds.maxX - bounds.minX);
+  const sy = (H - 2 * PAD) / Math.max(0.01, bounds.maxY - bounds.minY);
+  const s = Math.min(sx, sy);
+  const cx = (bounds.minX + bounds.maxX) / 2;
+  const cy = (bounds.minY + bounds.maxY) / 2;
+  return {
+    x: W / 2 + (px - cx) * s,
+    y: H / 2 - (py - cy) * s,    // Y inverted (firmware Y up, SVG Y down)
+  };
+}
+
+function computeTrajBounds() {
+  /* trail 经对齐变换后再参与 bounds(没对齐时按原样) */
+  const trailMapped = trajState.align ? trajState.trailPts.map(applyAlign) : trajState.trailPts;
+  const all = trajState.pathPts.concat(trailMapped, trajState.origPts, trajState.optPts);
+  if (all.length === 0) return null;
+  let mnX = Infinity, mxX = -Infinity, mnY = Infinity, mxY = -Infinity;
+  all.forEach(p => {
+    if (p.px < mnX) mnX = p.px;
+    if (p.px > mxX) mxX = p.px;
+    if (p.py < mnY) mnY = p.py;
+    if (p.py > mxY) mxY = p.py;
+  });
+  const dx = mxX - mnX, dy = mxY - mnY;
+  const m = Math.max(0.5, Math.max(dx, dy) * 0.10);   // 10% margin
+  return { minX: mnX - m, maxX: mxX + m, minY: mnY - m, maxY: mxY + m };
+}
+
+/* ==== trail 坐标系对齐(2D Kabsch)====
+ * 参考线优先级:车端 ghost(TRACK DUMP,= playback 实际在跟的线)> ORIG > OPT。
+ * 解 live→file 刚体变换 min Σ|R·l + t − r|²,闭式:θ=atan2(Σcross, Σdot)。
+ * rms 残差顺带是"PC 视角的跟踪一致性",大了说明加载的文件根本不是车在跑的线。 */
+function alignmentRefPts() {
+  if (trajState.pathPts.length >= 2) return trajState.pathPts;
+  if (trajState.origPts.length >= 2) return trajState.origPts;
+  if (trajState.optPts.length >= 2) return trajState.optPts;
+  return null;
+}
+
+function computeAlignment() {
+  const ref = alignmentRefPts();
+  if (!ref) { trajState.align = null; return; }
+  const pairs = [];
+  trajState.alignPairs.forEach((live, idx) => {
+    if (idx < ref.length) pairs.push({ l: live, r: ref[idx] });
+  });
+  if (pairs.length < 5) return;
+  const idxs = [...trajState.alignPairs.keys()];
+  if (Math.max(...idxs) - Math.min(...idxs) < 8) return;  // 点对太集中解不稳
+  let mlx = 0, mly = 0, mrx = 0, mry = 0;
+  pairs.forEach(p => { mlx += p.l.x; mly += p.l.y; mrx += p.r.px; mry += p.r.py; });
+  const n = pairs.length;
+  mlx /= n; mly /= n; mrx /= n; mry /= n;
+  let dot = 0, cross = 0;
+  pairs.forEach(p => {
+    const lx = p.l.x - mlx, ly = p.l.y - mly;
+    const rx = p.r.px - mrx, ry = p.r.py - mry;
+    dot += lx * rx + ly * ry;
+    cross += lx * ry - ly * rx;
+  });
+  const th = Math.atan2(cross, dot);
+  const c = Math.cos(th), s = Math.sin(th);
+  const tx = mrx - (c * mlx - s * mly);
+  const ty = mry - (s * mlx + c * mly);
+  let se = 0;
+  pairs.forEach(p => {
+    const ax = c * p.l.x - s * p.l.y + tx - p.r.px;
+    const ay = s * p.l.x + c * p.l.y + ty - p.r.py;
+    se += ax * ax + ay * ay;
+  });
+  trajState.align = { c, s, tx, ty, n, rms: Math.sqrt(se / n) };
+}
+
+function applyAlign(p) {
+  const a = trajState.align;
+  if (!a) return p;
+  return { px: a.c * p.px - a.s * p.py + a.tx,
+           py: a.s * p.px + a.c * p.py + a.ty };
+}
+
+function drawPolyline(id, pts, bounds) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (!pts || pts.length < 2 || !bounds) { el.setAttribute('d', ''); return; }
+  let d = '';
+  pts.forEach((p, i) => {
+    const sp = trajWorldToSvg(p.px, p.py, bounds);
+    d += (i === 0 ? 'M' : 'L') + sp.x.toFixed(1) + ',' + sp.y.toFixed(1) + ' ';
+  });
+  el.setAttribute('d', d);
+}
+
+function updateTrajectory() {
+  ensureTrajectory();
+  const statusText = document.getElementById('trajStatusText');
+  const overlay = document.getElementById('trajEmpty');
+  const haveGhost = trajState.pathPts.length > 0;
+  const haveFiles = trajState.origPts.length > 0 || trajState.optPts.length > 0;
+
+  if (trajState.fetchState === 'FETCHING') {
+    overlay.style.display = ''; overlay.textContent = '— FETCHING TRAJECTORY (TRACK DUMP) ... —';
+    statusText.textContent = '◆ FETCHING'; statusText.setAttribute('fill', '#46c2a5');
+    hideRunArtifacts();
+    drawPolyline('trajOrig', []); drawPolyline('trajOpt', []);
+    return;
+  }
+  /* 2026-06-10:文件叠加(orig/opt)不依赖车端 ghost——离线看优化对比不需要车在线 */
+  if (!haveGhost && !haveFiles) {
+    overlay.style.display = '';
+    overlay.textContent = '— NO TRAJECTORY — ↻ FETCH 抓车端录制 · 或用上方 ORIG/OPT 下拉加载离线文件 —';
+    statusText.textContent = '◆ EMPTY'; statusText.setAttribute('fill', '#ffb454');
+    hideRunArtifacts();
+    drawPolyline('trajOrig', []); drawPolyline('trajOpt', []);
+    return;
+  }
+  overlay.style.display = 'none';
+
+  const bounds = computeTrajBounds();
+  if (!bounds) return;
+
+  drawPolyline('trajPath', haveGhost ? trajState.pathPts : [], bounds);
+  const startDot = document.getElementById('trajStartDot');
+  if (haveGhost) {
+    const p0 = trajWorldToSvg(trajState.pathPts[0].px, trajState.pathPts[0].py, bounds);
+    setAttrs(startDot, { cx: p0.x, cy: p0.y });
+    startDot.style.display = '';
+  } else {
+    startDot.style.display = 'none';
+  }
+  drawPolyline('trajOrig', trajState.origPts, bounds);
+  drawPolyline('trajOpt',  trajState.optPts,  bounds);
+
+  if (!subscribed.has('MISSION')) {
+    statusText.textContent = (haveFiles && !haveGhost)
+      ? '◆ FILE VIEW (offline compare)'
+      : '◆ READY · subscribe MISSION for live trace';
+    statusText.setAttribute('fill', '#46c2a5');
+    hideRunArtifacts();
+    return;
+  }
+
+  const state = trajState.replayState;
+  /* 对齐状态进状态栏:ALN ±rms = trail 已变换进文件系且残差多大;
+   * UNALIGNED = 点对还不够/没参考线,trail 按原始坐标画(可能错位)。 */
+  const alnTag = trajState.align
+    ? ` · ALN ±${trajState.align.rms.toFixed(2)}m`
+    : (trajState.trailPts.length ? ' · UNALIGNED' : '');
+  statusText.textContent = (state === 'RUNNING'
+    ? `◆ RUNNING  trail=${trajState.trailPts.length} pts`
+    : state === 'STOPPED'
+      ? `◆ STOPPED  lostsrc=0x${safetyState.lostSrc.toString(16).padStart(2,'0')}`
+      : '◆ READY  press START to replay') + alnTag;
+  statusText.setAttribute('fill',
+    state === 'RUNNING' ? '#58c47c' : state === 'STOPPED' ? '#ffb454' : '#46c2a5');
+
+  // Live trail(对齐变换后绘制)
+  if (trajState.trailPts.length >= 2) {
+    const mapped = trajState.align ? trajState.trailPts.map(applyAlign) : trajState.trailPts;
+    let t = '';
+    mapped.forEach((p, k) => {
+      const sp = trajWorldToSvg(p.px, p.py, bounds);
+      t += (k === 0 ? 'M' : 'L') + sp.x.toFixed(1) + ',' + sp.y.toFixed(1) + ' ';
+    });
+    document.getElementById('trajTrail').setAttribute('d', t);
+    document.getElementById('trajTrail').style.display = '';
+    // Car at last trail point
+    const last = mapped[mapped.length - 1];
+    const sp = trajWorldToSvg(last.px, last.py, bounds);
+    setAttrs(document.getElementById('trajCar'),     { cx: sp.x, cy: sp.y });
+    setAttrs(document.getElementById('trajCarHalo'), { cx: sp.x, cy: sp.y });
+    document.getElementById('trajCar').style.display = (state === 'RUNNING') ? '' : 'none';
+    document.getElementById('trajCarHalo').style.display = (state === 'RUNNING') ? '' : 'none';
+  } else {
+    document.getElementById('trajTrail').setAttribute('d', '');
+    document.getElementById('trajCar').style.display = 'none';
+    document.getElementById('trajCarHalo').style.display = 'none';
+  }
+}
+
+function hideRunArtifacts() {
+  ['trajCar','trajCarHalo','trajTrail'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+}
+
+function setAttrs(el, attrs) { for (const k in attrs) el.setAttribute(k, attrs[k]); }
+
+/* ============================================================
+ * TRACK DUMP — fetch recorded trajectory from car
+ * Real flow (matches track_dump.py & spec §4.6):
+ *   1) STOP ALL STREAMS (quiesce)
+ *   2) POST /trajectory/clear
+ *   3) POST /command "TRACK DUMP" — wait for ACK,cmd=TRACK_DUMP,count=N
+ *   4) GET /trajectory?since=0  — poll until points.count == N
+ *   5) Populate trajState.pathPts
+ * ============================================================ */
+async function fetchTrackDump() {
+  trajState.fetchState = 'FETCHING';
+  trajState.pathPts = [];
+  trackDumpAckSeen = false; trackDumpCount = 0;
+  trajLastFetched = 0;
+  try { await fetch(`${API_BASE}/trajectory/clear`, {method:'POST'}); } catch(e) {}
+  await sendCmd('TRACK DUMP', {silent: false});
+  // Wait for ACK + points
+  const deadline = performance.now() + 5000;
+  while (performance.now() < deadline) {
+    if (trackDumpAckSeen) {
+      if (trackDumpCount <= 0) {
+        trajState.fetchState = 'EMPTY';
+        logInfo(trackDumpCount === 0
+          ? 'TRACK DUMP returned 0 points — no recorded trajectory'
+          : 'TRACK DUMP rejected (ERR) — likely no recorded trajectory yet, run MISSION LEARN first');
+        return;
+      }
+      // poll trajectory
+      try {
+        const resp = await fetch(`${API_BASE}/trajectory?since=0`);
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data.points && data.points.length >= trackDumpCount) {
+            trajState.pathPts = data.points.map(p => ({
+              px: parseFloat(p.px ?? p.px_m ?? 0),
+              py: parseFloat(p.py ?? p.py_m ?? 0),
+            }));
+            trajState.fetchState = 'READY';
+            logInfo(`trajectory loaded: ${trajState.pathPts.length} points`);
+            return;
+          }
+        }
+      } catch(e) {}
+    }
+    await new Promise(r => setTimeout(r, 100));
+  }
+  trajState.fetchState = 'EMPTY';
+  logErr('TRACK DUMP timeout (5s)');
+}
+
+document.getElementById('btnFetch').onclick = () => fetchTrackDump();
+
+/* ============================================================
+ * 轨迹文件对比(2026-06-10):原始录制 vs 离线优化线
+ * 文件来源:后端 /paths/list + /paths/load(paths/ 与 recordings/ 目录),
+ * 或浏览器本地文件(旧后端无 /paths 端点时的兜底)。
+ * ============================================================ */
+let pathsListLoaded = false;
+
+async function ensurePathsListLoaded(force) {
+  if (pathsListLoaded && !force) return;
+  let data = { paths: [], recordings: [] };
   try {
-    const resp = await fetch(`${API_BASE}/history`);
-    if (!resp.ok) return;
-    let hist = await resp.json();
-    if (Array.isArray(hist) && hist.length > 0) {
-      dataStore.history = hist;
-      clampView();
-      consoleLog('info', 'Data', `Loaded ${hist.length} historical points`);
-      requestChartRender();
+    const resp = await fetch(`${API_BASE}/paths/list`);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    data = await resp.json();
+    pathsListLoaded = true;
+  } catch (e) {
+    logErr(`paths list failed: ${e.message} — 旧后端?可用 (local file…) 兜底`);
+  }
+  fillPathSelect('selOrig', data);
+  fillPathSelect('selOpt', data);
+}
+
+function fillPathSelect(selId, data) {
+  const sel = document.getElementById(selId);
+  const cur = sel.value;
+  sel.innerHTML = '';
+  sel.appendChild(new Option('(none)', ''));
+  for (const dname of ['recordings', 'paths']) {
+    const grp = document.createElement('optgroup');
+    grp.label = dname + '/';
+    (data[dname] || []).forEach(f =>
+      grp.appendChild(new Option(`${f.filename} · ${f.mtime}`, `${dname}|${f.filename}`)));
+    sel.appendChild(grp);
+  }
+  sel.appendChild(new Option('(local file…)', '@local'));
+  if ([...sel.options].some(o => o.value === cur)) sel.value = cur;
+}
+
+/* 兼容三种点 schema:learn dump(px_m/py_m) / 优化输出(x_m/y_m) / 桥端 TELPT(px/py) */
+function normalizePathPoints(data) {
+  const pts = Array.isArray(data) ? data : (data && data.points) || [];
+  const out = [];
+  for (const p of pts) {
+    if (!p || typeof p !== 'object') continue;
+    const x = Number(p.px_m ?? p.x_m ?? p.px ?? p.x);
+    const y = Number(p.py_m ?? p.y_m ?? p.py ?? p.y);
+    if (Number.isFinite(x) && Number.isFinite(y)) out.push({ px: x, py: y });
+  }
+  return out;
+}
+
+function setPathSlot(slot, pts, name) {
+  if (slot === 'orig') { trajState.origPts = pts; trajState.origName = name; }
+  else                 { trajState.optPts  = pts; trajState.optName  = name; }
+  if (name) {
+    if (pts.length >= 2) logInfo(`${slot.toUpperCase()} loaded: ${name} (${pts.length} pts)`);
+    else logErr(`${name}: 没有可用的 XY 点(schema 不认识?)`);
+  }
+  rebuildTrajLegend();
+}
+
+async function onPathSelect(slot) {
+  const sel = document.getElementById(slot === 'orig' ? 'selOrig' : 'selOpt');
+  const v = sel.value;
+  if (v === '@local') {
+    document.getElementById(slot === 'orig' ? 'fileOrig' : 'fileOpt').click();
+    return;
+  }
+  if (!v) { setPathSlot(slot, [], ''); return; }
+  const [dname, fname] = v.split('|');
+  try {
+    const resp = await fetch(
+      `${API_BASE}/paths/load?dir=${encodeURIComponent(dname)}&file=${encodeURIComponent(fname)}`);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    setPathSlot(slot, normalizePathPoints(await resp.json()), fname);
+  } catch (e) {
+    logErr(`load ${fname} failed: ${e.message}`);
+  }
+}
+
+function bindLocalFile(inputId, slot) {
+  document.getElementById(inputId).addEventListener('change', (ev) => {
+    const f = ev.target.files[0];
+    if (!f) return;
+    const rd = new FileReader();
+    rd.onload = () => {
+      try { setPathSlot(slot, normalizePathPoints(JSON.parse(rd.result)), f.name); }
+      catch (e) { logErr(`parse ${f.name}: ${e.message}`); }
+    };
+    rd.readAsText(f);
+    ev.target.value = '';
+  });
+}
+
+document.getElementById('btnPathsReload').onclick = () => ensurePathsListLoaded(true);
+document.getElementById('selOrig').onchange = () => onPathSelect('orig');
+document.getElementById('selOpt').onchange = () => onPathSelect('opt');
+bindLocalFile('fileOrig', 'orig');
+bindLocalFile('fileOpt', 'opt');
+
+/* btnFit 原本没绑任何 handler(死按钮 bug);bounds 本来就自动 fit,
+ * 改成 CLEAR:清掉文件叠加 + 上次 trail。 */
+(() => {
+  const b = document.getElementById('btnFit');
+  b.textContent = '✕ CLEAR';
+  b.title = '清除 ORIG/OPT 叠加和上次 trail';
+  b.onclick = () => {
+    trajState.origPts = []; trajState.optPts = [];
+    trajState.origName = ''; trajState.optName = '';
+    trajState.trailPts = [];
+    document.getElementById('selOrig').value = '';
+    document.getElementById('selOpt').value = '';
+    rebuildTrajLegend();
+  };
+})();
+
+/* ============================================================
+ * Replay state machine
+ * ============================================================ */
+function replayStart() {
+  if (trajState.fetchState !== 'READY') {
+    logErr('cannot START — trajectory not loaded; click ↻ FETCH or trigger TRACK DUMP');
+    return;
+  }
+  trajState.trailPts = [];   // clear last run's leftover (spec §4.6 "下次复现自动清理上次轨迹")
+  sendCmd('MISSION RETURN');
+  // replayState will transition to RUNNING when TELMISSION m_st=3, m_eng=1 arrives
+}
+
+async function requestStop(source) {
+  logInfo(`STOP requested via ${source}`);
+  safetyState.stopRetryCount = 0;
+  attemptStop();
+}
+
+async function attemptStop() {
+  safetyState.stopRetryCount++;
+  await sendCmd(`MISSION IDLE`, {silent: true});
+  logAck(`MISSION_IDLE ⤴ attempt ${safetyState.stopRetryCount}`);
+  // Wait for m_st=0 confirmation
+  if (safetyState.stopRetryTimer) clearTimeout(safetyState.stopRetryTimer);
+  safetyState.stopRetryTimer = setTimeout(() => {
+    if (trajState.replayState === 'RUNNING') {
+      if (safetyState.stopRetryCount < STOP_MAX_RETRIES) {
+        logErr(`STOP ACK timeout (attempt ${safetyState.stopRetryCount}) — retrying`);
+        attemptStop();
+      } else {
+        logErr('STOP retries exhausted — firmware Gate 8 should self-abort');
+        const banner = document.getElementById('stopFailBanner');
+        banner.style.display = 'block';
+        setTimeout(() => banner.style.display = 'none', 4000);
+      }
     }
-  } catch (err) {
-    // Ignore
+  }, STOP_ACK_TIMEOUT_MS);
+}
+
+function onReplayStateChanged(prev, cur, lostsrc) {
+  logInfo(`replay state: ${prev} → ${cur}` + (lostsrc ? ` (lostsrc=0x${lostsrc.toString(16)})` : ''));
+  if (cur === 'RUNNING') {
+    /* 进入 RUNNING 统一清上次 trail/对齐(不管发车来自网页按钮、curl 还是菜单——
+     * 旧代码只在网页 START 时清,curl 发车会把两圈 trail 连线混在一起)。 */
+    trajState.trailPts = [];
+    trajState.alignPairs.clear();
+    trajState.align = null;
+    trajState.alignDirty = 0;
+    startHeartbeat();
+  }
+  else stopHeartbeat();
+  if (cur === 'STOPPED' && safetyState.stopRetryTimer) {
+    clearTimeout(safetyState.stopRetryTimer);
+    safetyState.stopRetryTimer = null;
+  }
+  refreshReplayButtons();
+  updateFloatingStop();
+}
+
+function refreshReplayButtons() {
+  const start = document.querySelector('.hud-replay-btns [data-act=start]');
+  const stop = document.querySelector('.hud-replay-btns [data-act=stop]');
+  if (start) start.disabled = !(trajState.fetchState === 'READY' && trajState.replayState !== 'RUNNING');
+  if (stop)  stop.disabled  = trajState.replayState !== 'RUNNING';
+}
+
+function updateFloatingStop() {
+  const btn = document.getElementById('floatingStop');
+  btn.style.display = (trajState.replayState === 'RUNNING') ? 'flex' : 'none';
+}
+
+/* ============================================================
+ * Heartbeat (Layer 2, spec §4.8)
+ * ============================================================ */
+function startHeartbeat() {
+  stopHeartbeat();
+  safetyState.hbTimerId = setInterval(() => {
+    if (safetyState.hbSuppressed) return;   // TEST: PAUSE HB
+    /* 固件没有 HB 命令——任何合法命令都会刷新心跳;旧代码发 'HB' 每 200ms
+     * 刷一条 ERR UNKNOWN_COMMAND(也能保活但污染日志/custom_state)。
+     * 用 GET STREAMS(标准保活命令,响应最短)。 */
+    sendCmd('GET STREAMS', {silent: true});
+  }, HB_INTERVAL);
+}
+function stopHeartbeat() {
+  if (safetyState.hbTimerId) {
+    clearInterval(safetyState.hbTimerId);
+    safetyState.hbTimerId = null;
   }
 }
 
-/* ================================================================
-   UTILITY HELPERS
-   ================================================================ */
-function hexToRGBA(hex, alpha) {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return `rgba(${r},${g},${b},${alpha})`;
-}
+/* ============================================================
+ * Header chips
+ * ============================================================ */
+function updateLinkChip() {
+  const linkDot = document.getElementById('linkDot');
+  const linkText = document.getElementById('linkText');
+  const hbChip = document.getElementById('hbChip');
+  const hbText = document.getElementById('hbText');
 
-function escapeHtml(s) {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
-function formatAxis(v) {
-  const abs = Math.abs(v);
-  if (abs >= 1000) return v.toFixed(0);
-  if (abs >= 10) return v.toFixed(1);
-  if (abs >= 1) return v.toFixed(2);
-  return v.toFixed(3);
-}
-
-function niceScale(min, max, targetTicks) {
-  const range = max - min;
-  if (range === 0) return [min];
-  const roughStep = range / targetTicks;
-  const mag = Math.pow(10, Math.floor(Math.log10(roughStep)));
-  const residual = roughStep / mag;
-  let step;
-  if (residual <= 1.5) step = mag;
-  else if (residual <= 3) step = 2 * mag;
-  else if (residual <= 7) step = 5 * mag;
-  else step = 10 * mag;
-
-  const ticks = [];
-  const start = Math.ceil(min / step) * step;
-  for (let v = start; v <= max; v += step) {
-    ticks.push(parseFloat(v.toFixed(10)));
+  // TCP link (from m_tcpok OR API connectivity)
+  if (safetyState.apiConnected && safetyState.tcpOk) {
+    linkDot.className = 'dot up';
+    linkText.textContent = 'CAR LINK · OK';
+  } else if (safetyState.apiConnected && !safetyState.tcpOk) {
+    linkDot.className = 'dot down';
+    linkText.textContent = 'CAR LINK · LOST';
+  } else {
+    linkDot.className = 'dot';
+    linkText.textContent = 'BACKEND OFFLINE';
   }
-  return ticks;
+
+  // HB（m_hbok 来自 TELMISSION，必须订 MISSION 才能看到真值）
+  hbChip.classList.remove('degraded', 'lost');
+  if (!safetyState.apiConnected) {
+    hbChip.classList.add('lost'); hbText.textContent = 'HB --';
+  } else if (!subscribed.has('MISSION')) {
+    hbText.textContent = 'HB n/a';   // 没订 MISSION 拿不到 m_hbok
+  } else if (safetyState.hbSuppressed) {
+    hbChip.classList.add('lost'); hbText.textContent = 'HB SUPPRESSED';
+  } else if (!safetyState.hbOk) {
+    hbChip.classList.add('degraded'); hbText.textContent = 'HB DEGRADED';
+  } else {
+    hbText.textContent = 'HB OK';
+  }
 }
 
-/* ================================================================
-   RESIZE HANDLING
-   ================================================================ */
-let resizeTimer = null;
-window.addEventListener('resize', () => {
-  clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(() => requestChartRender(), 50);
+/* TEST: suppress HB locally to test Gate 8 firmware-side */
+document.getElementById('btnSimDisc').onclick = () => {
+  safetyState.hbSuppressed = !safetyState.hbSuppressed;
+  const btn = document.getElementById('btnSimDisc');
+  btn.classList.toggle('active', safetyState.hbSuppressed);
+  btn.textContent = safetyState.hbSuppressed ? 'TEST: RESUME HB' : 'TEST: PAUSE HB';
+  if (safetyState.hbSuppressed) logErr('TEST: HB sender paused locally · expect firmware Gate 8 in ≤ 810ms');
+  else logInfo('TEST: HB sender resumed');
+  updateLinkChip();
+};
+
+/* Floating STOP + keyboard */
+document.getElementById('floatingStop').onclick = () => requestStop('floating-btn');
+document.addEventListener('keydown', (e) => {
+  if (e.code !== 'Space' && e.code !== 'Escape') return;
+  const t = document.activeElement;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) {
+    if (e.code === 'Escape') t.blur();
+    return;
+  }
+  if (trajState.replayState === 'RUNNING') {
+    e.preventDefault();
+    requestStop(e.code === 'Escape' ? 'esc-key' : 'space-key');
+  }
 });
 
-/* ================================================================
-   STARTUP
-   ================================================================ */
-document.addEventListener('DOMContentLoaded', async () => {
-  await loadConfig();
-  initUI();
-  loadHistory();
-  pollTimer = setInterval(pollLatest, POLL_INTERVAL);
-  statusTimer = setInterval(pollStatus, 2000);
-  pollStatus();
+/* ============================================================
+ * Chart zoom/pan interactions
+ * ============================================================ */
+function setZoom(z) {
+  zoomLevel = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z));
+  if (zoomLevel === ZOOM_MIN) isLive = true;
+}
+document.getElementById('btnZoomIn').onclick = () => setZoom(zoomLevel * ZOOM_STEP);
+document.getElementById('btnZoomOut').onclick = () => setZoom(zoomLevel / ZOOM_STEP);
+document.getElementById('btnZoomReset').onclick = () => { zoomLevel = 1.0; isLive = true; };
+
+document.getElementById('chartCanvas').addEventListener('wheel', (e) => {
+  if (chartMode !== 'time') return;
+  e.preventDefault();
+  setZoom(e.deltaY < 0 ? zoomLevel * ZOOM_STEP : zoomLevel / ZOOM_STEP);
+}, {passive: false});
+
+(() => {
+  const cv = document.getElementById('chartCanvas');
+  let dragging = false, lastX = 0;
+  cv.addEventListener('mousedown', (e) => {
+    if (chartMode !== 'time') return;
+    if (e.target.closest('.hud-chart-legend')) return;
+    dragging = true; lastX = e.clientX;
+    cv.classList.add('panning');
+    e.preventDefault();
+  });
+  window.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    const dx = e.clientX - lastX; lastX = e.clientX;
+    const w = cv.clientWidth || 800;
+    const windowSize = Math.max(2, Math.floor(CHART_N / zoomLevel));
+    panBy(dx * (windowSize / w));
+  });
+  window.addEventListener('mouseup', () => {
+    if (dragging) { dragging = false; cv.classList.remove('panning'); }
+  });
+})();
+
+(() => {
+  const mini = document.getElementById('minimap');
+  const vp = document.getElementById('minimapViewport');
+  let dragging = false, dragStartX = 0, dragStartEnd = 0;
+  vp.addEventListener('mousedown', (e) => {
+    dragging = true;
+    dragStartX = e.clientX;
+    dragStartEnd = isLive ? maxBufLen() : frozenEndIdx;
+    e.stopPropagation(); e.preventDefault();
+  });
+  mini.addEventListener('mousedown', (e) => {
+    if (e.target === vp || vp.contains(e.target)) return;
+    const rect = mini.getBoundingClientRect();
+    const ratio = (e.clientX - rect.left) / rect.width;
+    const refLen = maxBufLen(); if (refLen < 10) return;
+    const windowSize = Math.max(2, Math.floor(CHART_N / zoomLevel));
+    panToAbs(Math.min(refLen, ratio * refLen + windowSize / 2));
+  });
+  window.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    const rect = mini.getBoundingClientRect();
+    const refLen = maxBufLen();
+    panToAbs(dragStartEnd + (e.clientX - dragStartX) * (refLen / rect.width));
+  });
+  window.addEventListener('mouseup', () => { dragging = false; });
+})();
+
+/* ============================================================
+ * Render loop (60fps via rAF)
+ * ============================================================ */
+let lastFrameTs = performance.now();
+let lastMetaUpdate = 0;
+let lastFrameUpdate = 0;
+
+function renderLoop(ts) {
+  const dt = ts - lastFrameTs;
+  if (dt > 0) currentFps = currentFps * 0.9 + (1000 / dt) * 0.1;
+  lastFrameTs = ts;
+
+  // Repaint display values from buffers (every frame is cheap — small DOM)
+  paintDisplay();
+
+  if (chartMode === 'time') updateChart();
+  else if (chartMode === 'traj') updateTrajectory();
+
+  if (ts - lastMetaUpdate > 100) {
+    document.getElementById('chartMeta').textContent =
+      `t=${(performance.now()/1000).toFixed(1)}s · ${currentFps.toFixed(0)} fps`;
+    lastMetaUpdate = ts;
+  }
+  requestAnimationFrame(renderLoop);
+}
+
+/* ============================================================
+ * Paint bool/enum once per frame arrival (called from onTelemetryFrame's caller path)
+ * We need access to the raw frame for bool/enum since they don't go through buffers.
+ * So onTelemetryFrame is updated above to also paint bool/enum directly.
+ * ============================================================ */
+// Patch onTelemetryFrame to paint bool/enum (cleaner than re-querying)
+const _origOnFrame = onTelemetryFrame;
+onTelemetryFrame = function(frame) {
+  _origOnFrame(frame);
+  if (!frame || typeof frame !== 'object') return;
+  const type = frame._packet ? String(frame._packet).toUpperCase() : '';
+  const streamName = PREFIX_TO_STREAM[type];
+  if (streamName && subscribed.has(streamName)) paintBoolEnum(frame, streamName);
+};
+
+/* ============================================================
+ * Boot
+ * ============================================================ */
+async function boot() {
+  renderStreams();
+  renderDisplay();
+  updateLinkChip();
+  bindFreeSubscribe();
+  renderFreeSubscribePanel();
+
+  // Status poll + telemetry poll
+  setInterval(fetchStatus, STATUS_INTERVAL);
+  setInterval(pollLatest, POLL_INTERVAL);
+  fetchStatus();
+
+  // Sync subscribed streams + 字段目录 from car after a short delay (let backend connect)
+  setTimeout(async () => {
+    try {
+      await sendCmd('GET STREAMS', {silent: true});
+      await sendCmd('GET CATALOG', {silent: true});   // 回填 Free Subscribe 字段目录
+    } catch(e) {}
+  }, 500);
+
+  // Auto-fetch DISABLED — was triggering wifi_spi send-queue stall on every connect
+  // (5s TRACK DUMP timeout blocked all subsequent SET/GET commands for ~10s).
+  // The fetchTrackDump function is still bound to btnFetch (↻ FETCH) for manual use
+  // after MISSION LEARN / RECORD. Disabling the auto-trigger doesn't lose functionality,
+  // just removes the always-on hit that PID tuning sessions don't need.
+  // Originally:
+  //   setTimeout(() => {
+  //     if (safetyState.apiConnected) fetchTrackDump();
+  //   }, 1500);
+
+  requestAnimationFrame(renderLoop);
+}
+/* ============================================================
+ * PIT-WALL 增强模块(2026-06-10 重设计)
+ * 全部以"包装/追加"方式挂在既有引擎上,不改已验证的数据管线。
+ * ============================================================ */
+
+/* —— 常驻急停:header STOP 任何时候可按(发 MISSION IDLE)—— */
+document.getElementById('btnHeaderStop').onclick = () => requestStop('header-btn');
+
+/* —— RUNNING 状态同步到 body class(header 活动条/急停高亮)—— */
+const _origUpdateFloatingStop = updateFloatingStop;
+updateFloatingStop = function () {
+  _origUpdateFloatingStop();
+  const running = trajState.replayState === 'RUNNING';
+  document.body.classList.toggle('running', running);
+  document.getElementById('btnHeaderStop').classList.toggle('armed', running);
+};
+
+/* —— 控制台:行分类(过滤用)+ 过滤器 + 清屏 —— */
+appendLog = function (html) {
+  const con = document.getElementById('hud-console');
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  div.className = html.includes('class="err"') ? 'ln-err'
+                : html.includes('class="ack"') ? 'ln-ack'
+                : html.includes('class="info"') ? 'ln-info' : 'ln-misc';
+  con.appendChild(div);
+  while (con.children.length > 500) con.removeChild(con.firstChild);
+  con.scrollTop = con.scrollHeight;
+};
+document.querySelectorAll('.c-filters button').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('.c-filters button').forEach(b => b.classList.toggle('on', b === btn));
+    document.getElementById('hud-console').setAttribute('data-filter', btn.dataset.cf);
+  };
 });
+document.getElementById('btnConsoleClear').onclick = () => {
+  document.getElementById('hud-console').innerHTML = '';
+};
+
+/* —— 图例实时值(pit-wall 式:图例即读数排)—— */
+const _origBuildChartLegend = buildChartLegend;
+buildChartLegend = function () {
+  _origBuildChartLegend();
+  document.querySelectorAll('#chartLegend > div').forEach(item => {
+    const keyEl = item.querySelector('span:last-child');
+    if (!keyEl || item.querySelector('.lv')) return;
+    const lv = document.createElement('span');
+    lv.className = 'lv';
+    lv.dataset.legendVal = keyEl.textContent;
+    lv.textContent = '--';
+    item.appendChild(lv);
+  });
+};
+const _origPaintDisplay = paintDisplay;
+paintDisplay = function () {
+  _origPaintDisplay();
+  document.querySelectorAll('[data-legend-val]').forEach(el => {
+    const buf = chartBuf[el.dataset.legendVal];
+    if (buf && buf.length) {
+      const v = buf[buf.length - 1];
+      el.textContent = Math.abs(v) < 10 ? v.toFixed(2) : v.toFixed(1);
+    }
+  });
+};
+
+/* —— 轨迹页比例尺:从 bounds 推像素/米,取整刻度,直接在图上读米数 —— */
+function drawScaleBar() {
+  const svg = document.getElementById('chartSvg');
+  let g = document.getElementById('trajScaleBar');
+  const bounds = computeTrajBounds();
+  if (chartMode !== 'traj' || !bounds) { if (g) g.remove(); return; }
+  const W = 800, H = 380, PAD = 30;
+  const s = Math.min((W - 2 * PAD) / Math.max(0.01, bounds.maxX - bounds.minX),
+                     (H - 2 * PAD) / Math.max(0.01, bounds.maxY - bounds.minY));
+  const niceList = [0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50];
+  let Lm = niceList[0];
+  for (const c of niceList) { if (c * s <= 200) Lm = c; }
+  const px = Lm * s;
+  if (!g) {
+    g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    g.id = 'trajScaleBar';
+    svg.appendChild(g);
+  }
+  const x0 = 16, y0 = 332;
+  g.innerHTML =
+    `<rect x="${x0 - 6}" y="${y0 - 16}" width="${px + 12}" height="26" rx="2" fill="rgba(14,18,24,0.8)" stroke="#2e3950"/>` +
+    `<line x1="${x0}" y1="${y0}" x2="${x0 + px}" y2="${y0}" stroke="#dde6f2" stroke-width="1.5"/>` +
+    `<line x1="${x0}" y1="${y0 - 4}" x2="${x0}" y2="${y0 + 4}" stroke="#dde6f2" stroke-width="1.5"/>` +
+    `<line x1="${x0 + px}" y1="${y0 - 4}" x2="${x0 + px}" y2="${y0 + 4}" stroke="#dde6f2" stroke-width="1.5"/>` +
+    `<text x="${x0 + px / 2}" y="${y0 - 6}" text-anchor="middle" fill="#8b9bb4" font-family="Consolas,monospace" font-size="10">${Lm} m</text>`;
+}
+const _origUpdateTrajectory = updateTrajectory;
+updateTrajectory = function () {
+  _origUpdateTrajectory();
+  drawScaleBar();
+};
+const _origClearTrajDom = clearTrajectoryDom;
+clearTrajectoryDom = function () {
+  _origClearTrajDom();
+  const g = document.getElementById('trajScaleBar');
+  if (g) g.remove();
+};
+
+document.getElementById('appTag').textContent = 'PIT-WALL · 2026-06-10 · TRAJ-COMPARE';
+
+boot();
 </script>
+
 </body>
 </html>

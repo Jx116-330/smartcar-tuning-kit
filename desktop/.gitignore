@@ -1,0 +1,48 @@
+# ==== 密钥 / 凭证(绝不提交)====
+# 讯飞凭证。xfyun_credentials.py 无路径前缀→匹配所有目录(含 dist/ 副本)
+xfyun_credentials.py
+*credentials*
+*.secret
+.env
+
+# ==== 构建产物 / 缓存 ====
+# dist/ = 1.2G PyInstaller 输出(且内含凭证副本 + .exe 备份);.gitignore 不支持行尾注释,注释须独占一行
+dist/
+build/
+__pycache__/
+*.pyc
+*.exe
+
+# ==== 日志 ====
+*.log
+
+# ==== 大体量 / 易变数据(可由工具重新生成,不入版本)====
+recordings/
+runtime/
+archive/
+paths/
+sweeps/
+runs/
+return_port_check/
+synth_port_check/
+s2_match_check/
+
+# ==== 顶层散落的临时数据 / 图 ====
+_runs_rich.json
+_runs_tail.json
+_speed_loss_out.json
+*.png
+
+# ==== 备份 / 历史大文件 ====
+dashboard.html.legacy
+*.html.bak
+
+# ==== 本地 agent 工具态(非调车产物)====
+.claude/
+.superpowers/
+.zcode/
+
+# ==== 前端工程(web/):依赖与中间产物不入库;dist 产物由 build.bat 现构(npm run build), 不入库 ====
+web/node_modules/
+.playwright-cli/
+.mimosa/

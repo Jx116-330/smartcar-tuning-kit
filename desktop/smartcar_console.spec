@@ -1,4 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
+# 控制台构建(2026-09-14 设计文档 §3):服务/headless 场景推荐形态。
+# 与 smartcar.spec 同 Analysis;唯一差异 console=True + 独立产物名。
 from PyInstaller.utils.hooks import collect_data_files
 
 ttkb_datas = collect_data_files('ttkbootstrap')
@@ -9,15 +11,12 @@ a = Analysis(
     binaries=[],
     datas=[
         ('dashboard.html', '.'),
-        # Phase C2:新前端构建产物(web/dist)内嵌为 web_dist;
-        # 运行时 app_dir()/web_dist/ 热载目录优先于此内嵌副本。
         ('web/dist', 'web_dist'),
         *ttkb_datas,
     ],
     hiddenimports=['ttkbootstrap', 'config_loader', 'asr_bridge', 'asr_vocab',
-                  'camera_capture',
-                  # P0(2026-08-14):桥内护栏强制 + 通用核新模块
-                  'guardrails', 'optimizer', 'score_engine'],
+                   'camera_capture',
+                   'guardrails', 'optimizer', 'score_engine'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -33,10 +32,9 @@ exe = EXE(
     a.binaries,
     a.datas,
     a.zipfiles,
-    name='YawTuningTool',
+    name='YawTuningToolConsole',
     debug=False,
     strip=False,
     upx=True,
-    console=False,
-    # icon='icon.ico',
+    console=True,
 )

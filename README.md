@@ -1,132 +1,79 @@
 # SmartCar Tuning Kit
 
-An open-source real-time tuning toolkit for smart car projects. Includes a portable C library for the car MCU and a Python desktop GUI for monitoring and parameter tuning.
+An open-source tuning toolkit for smart car (and other embedded) projects: a portable C library for the MCU side, and a Python **TCP↔HTTP bridge + Web console** for the desktop side — monitoring, parameter tuning, automated optimization and safety-guarded experimentation.
 
-## Features
+> **v2 baseline (2026-09)** — the `desktop/` half has been rebuilt around a generic
+> bridge core: schema-driven Web UI, TPE Bayesian optimizer, declarative guardrails,
+> MCP tool surface for AI agents, a bridge-extension mechanism for device-specific
+> features, and a headless service mode. The legacy `firmware/` library keeps working
+> with it via the original `key=value` protocol. 中文详细文档见 [`desktop/README.md`](desktop/README.md)
+> 与 [`desktop/docs/`](desktop/docs/)。
 
-- **Real-time telemetry**: stream sensor data from car to desktop via TCP
-- **PID tuning**: get/set/save PID parameters, 7-candidate auto-tuning
-- **Live plotting**: rolling chart with configurable channels
-- **HTTP API**: automate tuning workflows via REST endpoints
-- **Config-driven**: customize fields, commands, and UI by editing one Python file
-- **Zero dependencies**: desktop tool uses only Python stdlib (tkinter)
-- **Portable C library**: callback-based HAL, works on any MCU (TC387, STM32, ESP32, etc.)
+## What's inside
 
-## Quick Start
+```
+desktop/     Python bridge (TCP 8080 ↔ HTTP 9898) + web console + tooling
+firmware/    Portable C library for the car MCU (legacy key=value protocol)
+protocol.md  Wire protocol reference for the legacy firmware library
+```
 
-### Desktop Tool
+## Desktop tool highlights
+
+- **Generic bridge core** — config-driven, zero device-specific strings in the core; per-device profiles (`desktop/profiles/`) swap protocol, schema and guardrails
+- **Web console** — Vite + React + uPlot, schema-generated tuning panel, live SSE telemetry, trajectory view, run comparison (`/ui`)
+- **Smart optimizer** — budget-aware TPE Bayesian optimization with multi-objective Pareto layers, deterministic seeds (`desktop/optimizer.py`)
+- **Safety guardrails** — blacklists / value ranges / max-step / per-run rollback declared in schema, enforced at bridge, driver and MCP layers with append-only audit (`desktop/guardrails.py`)
+- **Scoring & attribution** — configurable score profiles with per-segment breakdown ("where points were lost")
+- **Agent surface** — stdio MCP server (`desktop/mcp_server.py`) with propose→human-confirm flow
+- **Bridge extensions** — device-specific endpoints/stream parsing live outside the core in a config-declared extension module (`desktop/bridge_ext.py` as the reference implementation)
+- **Headless mode** — `python tuning_tool.py --headless`: no GUI required, file logging, `POST /shutdown` graceful exit; console exe build for service deployments
+
+## Quick start
+
+### Desktop tool (zero hardware)
 
 ```bash
 cd desktop
-python tuning_tool.py
+
+# 1. fake firmware device (virtual profile demo chain)
+python profiles/virtual/virtual_device.py
+
+# 2. in another terminal, start the bridge with the virtual profile
+python tuning_tool.py --profile virtual        # GUI mode
+python tuning_tool.py --profile virtual --headless   # service mode
+
+# 3. open the web console
+#    http://127.0.0.1:9898/ui
 ```
 
-1. Click **Start** to begin listening for TCP connections
-2. Use **Start Sim** to see simulated data without hardware
-3. Edit `tuning_config.py` to customize for your project
-
-### Firmware Integration
-
-1. Copy the `firmware/` directory into your project
-2. Edit `tuning_kit_config.h` for buffer sizes if needed
-3. Implement HAL callbacks:
-
-```c
-#include "tuning_kit.h"
-
-// Implement these for your platform:
-static uint32_t my_send(const uint8_t *data, uint32_t len) { /* ... */ }
-static uint32_t my_recv(uint8_t *buf, uint32_t max_len)    { /* ... */ }
-static uint8_t  my_is_connected(void)                       { /* ... */ }
-static uint32_t my_tick_ms(void)                            { /* ... */ }
-
-static const tk_pid_param_t* my_get_pid(void)               { /* ... */ }
-static uint8_t my_set_pid(const tk_pid_param_t *p, uint8_t save) { /* ... */ }
-
-// Register a telemetry packet:
-static uint8_t my_telemetry_builder(char *buf, uint32_t len) {
-    snprintf(buf, len, "TELG,ms=%lu,gx=%.3f,gy=%.3f,gz=%.3f",
-             my_tick_ms(), gyro_x, gyro_y, gyro_z);
-    return 1;
-}
-
-void main_init(void) {
-    tk_hal_t hal = { my_send, my_recv, my_is_connected, my_tick_ms };
-    tk_pid_callbacks_t pid = { my_get_pid, my_set_pid };
-    tk_init(&hal, &pid);
-    tk_register_telemetry("TELG", my_telemetry_builder);
-    tk_set_enabled(1);
-}
-
-void main_loop(void) {
-    tk_task();  // Call every 1-10 ms
-}
-```
-
-## Project Structure
-
-```
-smartcar-tuning-kit/
-├── firmware/                    # Car-side C library
-│   ├── tuning_kit.h/c          # Core framework
-│   ├── tuning_pid.h/c          # PID types + command handlers
-│   ├── tuning_autotune.h/c     # Auto-tuning algorithm
-│   ├── tuning_kit_config.h     # Compile-time config
-│   └── example_yaw/            # Yaw tuning example
-│       ├── tuning_yaw.h/c      # TELY packet + YAW commands
-│
-├── desktop/                     # Desktop Python tool
-│   ├── tuning_tool.py           # Main GUI (framework, don't edit)
-│   ├── tuning_config.py         # Your configuration (edit this)
-│   └── tuning_config_yaw.py     # Yaw example config
-│
-├── protocol.md                  # Wire protocol specification
-└── README.md                    # This file
-```
-
-## Configuration
-
-All customization is done in `desktop/tuning_config.py`:
-
-| Setting | Purpose |
-|---------|---------|
-| `PLOT_KEYS` | Chart channels: `[(key, color, default_on), ...]` |
-| `PRIMARY_METRICS` | Big metric cards: `[(key, label), ...]` |
-| `DETAIL_METRICS` | Compact metric rows |
-| `EXTENDED_METRICS` | Scrollable metric area |
-| `QUICK_COMMANDS` | Sidebar command buttons |
-| `KEY_MAP` | Short key expansion: `{short: long, ...}` |
-| `CUSTOM_TABS` | Extra status tabs with live fields |
-| `COMMAND_TABS` | Command tabs with buttons + parameter inputs |
-| `TELEMETRY_PREFIXES` | Recognized telemetry packet types |
-| `RESPONSE_PREFIXES` | Recognized response packet types |
-
-### Yaw Tuning Example
-
-To enable yaw tuning UI, replace `tuning_config.py` with `tuning_config_yaw.py`:
+Web console build (optional, only needed for `npm run build`):
 
 ```bash
-cd desktop
-copy tuning_config_yaw.py tuning_config.py
-python tuning_tool.py
+cd web && npm install && npm run build
 ```
 
-## HTTP API
+### Tests
 
-The desktop tool exposes a REST API at `http://127.0.0.1:9898`:
+```bash
+python tests/run_p0_checks.py               # 10 suites (frozen-exe suite SKIPs without built artifacts)
+python tests/test_frozen_headless.py --require   # release gate after build.bat
+```
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/latest` | GET | Latest telemetry + custom state |
-| `/snapshot` | GET | Full snapshot with connection info |
-| `/history` | GET | Recent telemetry history (100 entries) |
-| `/status` | GET | Server status |
-| `/command` | POST | Send command to car: `{"command": "GET PID"}` |
+### Firmware integration
 
-## Protocol
+- **New devices** — see [`desktop/docs/protocol_contract_v1.md`](desktop/docs/protocol_contract_v1.md)
+  and the single-file C99 reference implementation in [`desktop/firmware_kit/`](desktop/firmware_kit/) (line protocol, channel scheduling, `SET/RATE/GET/PING`, `!<seq>` receipts)
+- **Legacy MCU library** — copy `firmware/` into your project, implement the HAL
+  callbacks (`send`/`recv`/`is_connected`), see `protocol.md`
 
-See [protocol.md](protocol.md) for the complete wire protocol specification.
+### Packaging (Windows)
+
+```bat
+cd desktop && build.bat
+:: -> dist/YawTuningTool.exe (windowed)
+:: -> dist/YawTuningToolConsole.exe (console, recommended for headless/service)
+```
 
 ## License
 
-MIT
+See [LICENSE](LICENSE).

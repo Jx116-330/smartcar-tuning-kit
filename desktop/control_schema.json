@@ -1,0 +1,1307 @@
+{
+  "algorithms": {
+    "fields": [
+      {
+        "bit": 0,
+        "c_id": "CONTROL_FIELD_STEER_FF",
+        "default": true,
+        "id": "SteerFF"
+      },
+      {
+        "bit": 1,
+        "c_id": "CONTROL_FIELD_YAW_CTRL",
+        "default": true,
+        "id": "YawCtrl"
+      },
+      {
+        "bit": 2,
+        "c_id": "CONTROL_FIELD_HORIZ_CTRL",
+        "default": true,
+        "id": "HorizCtrl"
+      },
+      {
+        "bit": 3,
+        "c_id": "CONTROL_FIELD_LOOK_AHEAD_EN",
+        "default": true,
+        "id": "LookAheadEn"
+      },
+      {
+        "bit": 4,
+        "c_id": "CONTROL_FIELD_CURVE_SPEED_ENABLE",
+        "default": true,
+        "id": "CurveSpeed"
+      },
+      {
+        "bit": 5,
+        "c_id": "CONTROL_FIELD_DIFF_DRIVE",
+        "default": true,
+        "id": "DiffDrive"
+      },
+      {
+        "bit": 6,
+        "c_id": "CONTROL_FIELD_SPEED_FF_ENABLE",
+        "default": true,
+        "id": "SpeedFF"
+      },
+      {
+        "bit": 7,
+        "c_id": "CONTROL_FIELD_REC_DENSE",
+        "default": true,
+        "id": "RecDense"
+      }
+    ],
+    "payload_word": "bitset-lsb0"
+  },
+  "cross_field_rules": [
+    {
+      "error": "REC_MIN_GT_BASE",
+      "owner": "ControlTuning",
+      "rule": "RecMinStep<=RecDistStep"
+    },
+    {
+      "error": "S2_REC_MIN_GT_BASE",
+      "owner": "ControlTuning",
+      "rule": "S2_RecMinStep<=S2_RecDistStep"
+    }
+  ],
+  "enums": {
+    "MissionOrigin": {
+      "0": "local",
+      "1": "remote"
+    },
+    "MissionState": {
+      "0": "IDLE",
+      "1": "READY",
+      "2": "RECORDING",
+      "3": "PENDING",
+      "4": "RUNNING",
+      "5": "STOPPING",
+      "6": "ABORTED",
+      "7": "COMPLETE"
+    },
+    "MutationStatus": {
+      "0": "SAVED",
+      "1": "RAM_UNSAVED",
+      "2": "PENDING",
+      "3": "FAILED",
+      "4": "UNKNOWN"
+    },
+    "PedalState": {
+      "0": "off",
+      "1": "wait_zero",
+      "2": "ready"
+    },
+    "ReturnMode": {
+      "0": "reverse_without_turnaround",
+      "1": "forward_after_manual_turnaround"
+    }
+  },
+  "field_sets": {
+    "Algorithms": [
+      "SteerFF",
+      "YawCtrl",
+      "HorizCtrl",
+      "LookAheadEn",
+      "CurveSpeed",
+      "DiffDrive",
+      "SpeedFF",
+      "RecDense"
+    ],
+    "ContraryParam": [
+      "ReturnMode",
+      "diff_gain",
+      "Strait_time",
+      "Strait_speed",
+      "Curve_time",
+      "Curve_speed",
+      "RecSpeed",
+      "Curve_ahead",
+      "LookAhead",
+      "stop_speed",
+      "Contrary_FinD",
+      "Stop_confirm"
+    ],
+    "ControlTuning": [
+      "Curve_threshold",
+      "RecDistStep",
+      "RecMinStep",
+      "RecEncStep",
+      "S2_RecDistStep",
+      "S2_RecMinStep",
+      "S2_RecEncStep",
+      "HorizK",
+      "HorizLimit",
+      "YawLimit",
+      "YawKp",
+      "SpeedFFScale",
+      "Speed_Kp_L",
+      "Speed_Kp_R",
+      "Speed_Ki_L",
+      "Speed_Ki_R",
+      "Speed_Max_I"
+    ],
+    "LinkSafety": [
+      "HeartbeatTimeout"
+    ],
+    "RunData": [
+      "diff_gain",
+      "Strait_time",
+      "Strait_speed",
+      "Curve_time",
+      "Curve_speed",
+      "reverse_speed",
+      "DriveMaxSpd",
+      "RecSpeed",
+      "Reverse_rec_Speed",
+      "Curve_ahead",
+      "LookAhead",
+      "stop_speed",
+      "replay_FinD",
+      "Contrary_FinD",
+      "Stop_confirm"
+    ]
+  },
+  "fields": [
+    {
+      "c_id": "CONTROL_FIELD_DIFF_GAIN",
+      "default": 0.3,
+      "id": "diff_gain",
+      "max": 1.0,
+      "min": -1.0,
+      "precision": 3,
+      "step": 0.005,
+      "step_mode": "increment",
+      "type": "float32",
+      "unit": "ratio"
+    },
+    {
+      "c_id": "CONTROL_FIELD_STRAIT_TIME",
+      "default": 1.6,
+      "id": "Strait_time",
+      "max": 10.0,
+      "min": 0.1,
+      "precision": 1,
+      "step": 1.0,
+      "step_mode": "increment",
+      "type": "float32",
+      "unit": "s"
+    },
+    {
+      "c_id": "CONTROL_FIELD_STRAIT_SPEED",
+      "default": 2.5,
+      "id": "Strait_speed",
+      "max": 5.0,
+      "min": 0.0,
+      "precision": 1,
+      "step": 0.5,
+      "step_mode": "increment",
+      "type": "float32",
+      "unit": "m/s"
+    },
+    {
+      "c_id": "CONTROL_FIELD_CURVE_TIME",
+      "default": 0.5,
+      "id": "Curve_time",
+      "max": 10.0,
+      "min": 0.1,
+      "precision": 1,
+      "step": 1.0,
+      "step_mode": "increment",
+      "type": "float32",
+      "unit": "s"
+    },
+    {
+      "c_id": "CONTROL_FIELD_CURVE_SPEED",
+      "default": 1.8,
+      "id": "Curve_speed",
+      "max": 5.0,
+      "min": 0.0,
+      "precision": 1,
+      "step": 0.5,
+      "step_mode": "increment",
+      "type": "float32",
+      "unit": "m/s"
+    },
+    {
+      "c_id": "CONTROL_FIELD_REVERSE_SPEED",
+      "default": 1.3,
+      "id": "reverse_speed",
+      "max": 3.0,
+      "min": 0.0,
+      "precision": 1,
+      "step": 0.5,
+      "step_mode": "increment",
+      "type": "float32",
+      "unit": "m/s"
+    },
+    {
+      "c_id": "CONTROL_FIELD_DRIVE_MAX_SPD",
+      "default": 1.0,
+      "id": "DriveMaxSpd",
+      "max": 3.0,
+      "min": 0.0,
+      "precision": 1,
+      "step": 0.1,
+      "step_mode": "increment",
+      "type": "float32",
+      "unit": "m/s"
+    },
+    {
+      "c_id": "CONTROL_FIELD_REC_SPEED",
+      "default": 1.0,
+      "id": "RecSpeed",
+      "max": 3.0,
+      "min": 0.0,
+      "precision": 1,
+      "step": 0.1,
+      "step_mode": "increment",
+      "type": "float32",
+      "unit": "m/s"
+    },
+    {
+      "c_id": "CONTROL_FIELD_REVERSE_REC_SPEED",
+      "default": 0.7,
+      "id": "Reverse_rec_Speed",
+      "max": 2.0,
+      "min": 0.0,
+      "precision": 1,
+      "step": 0.1,
+      "step_mode": "increment",
+      "type": "float32",
+      "unit": "m/s"
+    },
+    {
+      "c_id": "CONTROL_FIELD_CURVE_AHEAD",
+      "default": 0.35,
+      "id": "Curve_ahead",
+      "max": 5.0,
+      "min": 0.0,
+      "precision": 2,
+      "step": 0.01,
+      "step_mode": "increment",
+      "type": "float32",
+      "unit": "m"
+    },
+    {
+      "c_id": "CONTROL_FIELD_LOOK_AHEAD",
+      "default": 0.0,
+      "id": "LookAhead",
+      "max": 5.0,
+      "min": 0.0,
+      "precision": 2,
+      "step": 0.01,
+      "step_mode": "increment",
+      "type": "float32",
+      "unit": "m"
+    },
+    {
+      "c_id": "CONTROL_FIELD_STOP_SPEED",
+      "default": 2.0,
+      "id": "stop_speed",
+      "max": 5.0,
+      "min": 0.0,
+      "precision": 1,
+      "step": 0.1,
+      "step_mode": "increment",
+      "type": "float32",
+      "unit": "m/s"
+    },
+    {
+      "c_id": "CONTROL_FIELD_REPLAY_FIN_D",
+      "default": 5.0,
+      "id": "replay_FinD",
+      "max": 30.0,
+      "min": 0.0,
+      "precision": 1,
+      "step": 0.1,
+      "step_mode": "increment",
+      "type": "float32",
+      "unit": "m"
+    },
+    {
+      "c_id": "CONTROL_FIELD_CONTRARY_FIN_D",
+      "default": 4.0,
+      "id": "Contrary_FinD",
+      "max": 30.0,
+      "min": 0.0,
+      "precision": 1,
+      "step": 0.1,
+      "step_mode": "increment",
+      "type": "float32",
+      "unit": "m"
+    },
+    {
+      "c_id": "CONTROL_FIELD_STOP_CONFIRM",
+      "default": 100,
+      "id": "Stop_confirm",
+      "max": 1000,
+      "min": 10,
+      "precision": 0,
+      "step": 10,
+      "step_mode": "discrete",
+      "type": "int32",
+      "unit": "mm/s"
+    },
+    {
+      "c_id": "CONTROL_FIELD_RETURN_MODE",
+      "default": 0,
+      "enum": "ReturnMode",
+      "id": "ReturnMode",
+      "max": 1,
+      "min": 0,
+      "precision": 0,
+      "step": 1,
+      "step_mode": "discrete",
+      "type": "enum",
+      "unit": "mode"
+    },
+    {
+      "c_id": "CONTROL_FIELD_CURVE_THRESHOLD",
+      "default": 9000.0,
+      "id": "Curve_threshold",
+      "max": 39000.0,
+      "min": 0.0,
+      "precision": 0,
+      "step": 500.0,
+      "step_mode": "increment",
+      "type": "float32",
+      "unit": "zust_count"
+    },
+    {
+      "c_id": "CONTROL_FIELD_REC_DIST_STEP",
+      "default": 0.06,
+      "id": "RecDistStep",
+      "max": 0.5,
+      "min": 0.01,
+      "precision": 3,
+      "step": 0.01,
+      "step_mode": "increment",
+      "type": "float32",
+      "unit": "m"
+    },
+    {
+      "c_id": "CONTROL_FIELD_REC_MIN_STEP",
+      "default": 0.006,
+      "id": "RecMinStep",
+      "max": 0.1,
+      "min": 0.001,
+      "precision": 3,
+      "step": 0.005,
+      "step_mode": "increment",
+      "type": "float32",
+      "unit": "m"
+    },
+    {
+      "c_id": "CONTROL_FIELD_REC_ENC_STEP",
+      "default": 100.0,
+      "id": "RecEncStep",
+      "max": 5000.0,
+      "min": 10.0,
+      "precision": 0,
+      "step": 100.0,
+      "step_mode": "increment",
+      "type": "float32",
+      "unit": "zust_count"
+    },
+    {
+      "c_id": "CONTROL_FIELD_S2_REC_DIST_STEP",
+      "default": 0.1,
+      "id": "S2_RecDistStep",
+      "max": 0.5,
+      "min": 0.02,
+      "precision": 3,
+      "step": 0.01,
+      "step_mode": "increment",
+      "type": "float32",
+      "unit": "m"
+    },
+    {
+      "c_id": "CONTROL_FIELD_S2_REC_MIN_STEP",
+      "default": 0.05,
+      "id": "S2_RecMinStep",
+      "max": 0.2,
+      "min": 0.005,
+      "precision": 3,
+      "step": 0.005,
+      "step_mode": "increment",
+      "type": "float32",
+      "unit": "m"
+    },
+    {
+      "c_id": "CONTROL_FIELD_S2_REC_ENC_STEP",
+      "default": 500.0,
+      "id": "S2_RecEncStep",
+      "max": 5000.0,
+      "min": 10.0,
+      "precision": 0,
+      "step": 100.0,
+      "step_mode": "increment",
+      "type": "float32",
+      "unit": "zust_count"
+    },
+    {
+      "c_id": "CONTROL_FIELD_HORIZ_K",
+      "default": 30000.0,
+      "id": "HorizK",
+      "max": 100000.0,
+      "min": -100000.0,
+      "precision": 0,
+      "step": 1000.0,
+      "step_mode": "increment",
+      "type": "float32",
+      "unit": "zust_count/m"
+    },
+    {
+      "c_id": "CONTROL_FIELD_HORIZ_LIMIT",
+      "default": 15000.0,
+      "id": "HorizLimit",
+      "max": 39000.0,
+      "min": 0.0,
+      "precision": 0,
+      "step": 500.0,
+      "step_mode": "increment",
+      "type": "float32",
+      "unit": "zust_count"
+    },
+    {
+      "c_id": "CONTROL_FIELD_YAW_LIMIT",
+      "control_domain": "legacy_zust_count",
+      "default": 7.0,
+      "id": "YawLimit",
+      "legacy_count_per_deg": 1300.0,
+      "max": 30.0,
+      "min": 0.0,
+      "precision": 1,
+      "step": 1.0,
+      "step_mode": "increment",
+      "type": "float32",
+      "unit": "deg"
+    },
+    {
+      "c_id": "CONTROL_FIELD_YAW_KP",
+      "default": 1600.0,
+      "id": "YawKp",
+      "max": 5000.0,
+      "min": -5000.0,
+      "precision": 0,
+      "step": 100.0,
+      "step_mode": "increment",
+      "type": "float32",
+      "unit": "zust_count/deg"
+    },
+    {
+      "c_id": "CONTROL_FIELD_SPEED_FF_SCALE",
+      "default": 1.0,
+      "id": "SpeedFFScale",
+      "max": 3.0,
+      "min": -3.0,
+      "precision": 2,
+      "step": 0.1,
+      "step_mode": "increment",
+      "type": "float32",
+      "unit": "ratio"
+    },
+    {
+      "c_id": "CONTROL_FIELD_SPEED_KP_L",
+      "default": 2100.0,
+      "id": "Speed_Kp_L",
+      "max": 10000.0,
+      "min": 0.0,
+      "precision": 0,
+      "step": 100.0,
+      "step_mode": "increment",
+      "type": "float32",
+      "unit": "zust_pid"
+    },
+    {
+      "c_id": "CONTROL_FIELD_SPEED_KP_R",
+      "default": 2200.0,
+      "id": "Speed_Kp_R",
+      "max": 10000.0,
+      "min": 0.0,
+      "precision": 0,
+      "step": 100.0,
+      "step_mode": "increment",
+      "type": "float32",
+      "unit": "zust_pid"
+    },
+    {
+      "c_id": "CONTROL_FIELD_SPEED_KI_L",
+      "default": 90.0,
+      "id": "Speed_Ki_L",
+      "max": 1000.0,
+      "min": 0.0,
+      "precision": 0,
+      "step": 10.0,
+      "step_mode": "increment",
+      "type": "float32",
+      "unit": "zust_pid"
+    },
+    {
+      "c_id": "CONTROL_FIELD_SPEED_KI_R",
+      "default": 90.0,
+      "id": "Speed_Ki_R",
+      "max": 1000.0,
+      "min": 0.0,
+      "precision": 0,
+      "step": 10.0,
+      "step_mode": "increment",
+      "type": "float32",
+      "unit": "zust_pid"
+    },
+    {
+      "c_id": "CONTROL_FIELD_SPEED_MAX_I",
+      "default": 50.0,
+      "id": "Speed_Max_I",
+      "max": 1000.0,
+      "min": 0.0,
+      "precision": 0,
+      "step": 10.0,
+      "step_mode": "increment",
+      "type": "float32",
+      "unit": "zust_pid"
+    },
+    {
+      "c_id": "CONTROL_FIELD_HEARTBEAT_TIMEOUT",
+      "default": 3000,
+      "id": "HeartbeatTimeout",
+      "max": 5000,
+      "min": 1500,
+      "precision": 0,
+      "step": 500,
+      "step_mode": "discrete",
+      "type": "uint32",
+      "unit": "ms"
+    }
+  ],
+  "owners": [
+    {
+      "c_id": "CONTROL_OWNER_P1",
+      "field_set": "RunData",
+      "id": "P1",
+      "page": 63,
+      "payload_words": 15
+    },
+    {
+      "c_id": "CONTROL_OWNER_P2",
+      "field_set": "RunData",
+      "id": "P2",
+      "page": 64,
+      "payload_words": 15
+    },
+    {
+      "c_id": "CONTROL_OWNER_P3",
+      "field_set": "RunData",
+      "id": "P3",
+      "page": 65,
+      "payload_words": 15
+    },
+    {
+      "c_id": "CONTROL_OWNER_P4",
+      "field_set": "RunData",
+      "id": "P4",
+      "page": 66,
+      "payload_words": 15
+    },
+    {
+      "c_id": "CONTROL_OWNER_P5",
+      "field_set": "RunData",
+      "id": "P5",
+      "page": 67,
+      "payload_words": 15
+    },
+    {
+      "c_id": "CONTROL_OWNER_CONTRARY",
+      "field_set": "ContraryParam",
+      "id": "ContraryParam",
+      "page": 68,
+      "payload_words": 12
+    },
+    {
+      "c_id": "CONTROL_OWNER_ALGORITHMS",
+      "field_set": "Algorithms",
+      "id": "Algorithms",
+      "page": 69,
+      "payload_words": 1
+    },
+    {
+      "c_id": "CONTROL_OWNER_LINK_SAFETY",
+      "field_set": "LinkSafety",
+      "id": "LinkSafety",
+      "page": 70,
+      "payload_words": 1
+    },
+    {
+      "c_id": "CONTROL_OWNER_CONTROL_TUNING",
+      "field_set": "ControlTuning",
+      "id": "ControlTuning",
+      "page": 71,
+      "payload_words": 17
+    }
+  ],
+  "protocol": {
+    "ack_prefix": "ACK,rid=<rid>,cmd=<token>",
+    "commands": [
+      [
+        "CAPS_GET",
+        "CAPS GET",
+        false
+      ],
+      [
+        "STATE_GET",
+        "STATE GET",
+        false
+      ],
+      [
+        "RUN_GET",
+        "RUN GET",
+        false
+      ],
+      [
+        "RUN_SET",
+        "RUN SET <REPLAY_REV|DELAY_START> <0|1> rev=<run_rev>",
+        true
+      ],
+      [
+        "DATA_GET",
+        "DATA GET <P1|P2|P3|P4|P5>",
+        false
+      ],
+      [
+        "DATA_ACTIVATE",
+        "DATA ACTIVATE <P1|P2|P3|P4|P5> rev=<flash_rev>",
+        true
+      ],
+      [
+        "DATA_SET",
+        "DATA SET <P1|P2|P3|P4|P5> <field> <value> rev=<owner_ram_rev>",
+        true
+      ],
+      [
+        "DATA_RESTORE",
+        "DATA RESTORE <P1|P2|P3|P4|P5> rev=<owner_ram_rev>",
+        true
+      ],
+      [
+        "DATA_SAVE",
+        "DATA SAVE <P1|P2|P3|P4|P5> rev=<owner_ram_rev>",
+        true
+      ],
+      [
+        "CONTRARY_GET",
+        "CONTRARY GET",
+        false
+      ],
+      [
+        "CONTRARY_SET",
+        "CONTRARY SET <field> <value> rev=<ram_rev>",
+        true
+      ],
+      [
+        "CONTRARY_RESTORE",
+        "CONTRARY RESTORE rev=<ram_rev>",
+        true
+      ],
+      [
+        "CONTRARY_SAVE",
+        "CONTRARY SAVE rev=<ram_rev>",
+        true
+      ],
+      [
+        "TUNING_GET",
+        "TUNING GET",
+        false
+      ],
+      [
+        "TUNING_SET",
+        "TUNING SET <field> <value> rev=<ram_rev>",
+        true
+      ],
+      [
+        "TUNING_RESTORE",
+        "TUNING RESTORE rev=<ram_rev>",
+        true
+      ],
+      [
+        "TUNING_SAVE",
+        "TUNING SAVE rev=<ram_rev>",
+        true
+      ],
+      [
+        "ALGO_GET",
+        "ALGO GET",
+        false
+      ],
+      [
+        "ALGO_SET",
+        "ALGO SET <field> <0|1> rev=<ram_rev>",
+        true
+      ],
+      [
+        "ALGO_RESET",
+        "ALGO RESET rev=<ram_rev>",
+        true
+      ],
+      [
+        "ALGO_SAVE",
+        "ALGO SAVE rev=<ram_rev>",
+        true
+      ],
+      [
+        "LINK_GET",
+        "LINK GET",
+        false
+      ],
+      [
+        "LINK_SET",
+        "LINK SET HEARTBEAT_TIMEOUT <ms> rev=<ram_rev>",
+        true
+      ],
+      [
+        "LINK_RESTORE",
+        "LINK RESTORE rev=<ram_rev>",
+        true
+      ],
+      [
+        "LINK_SAVE",
+        "LINK SAVE rev=<ram_rev>",
+        true
+      ],
+      [
+        "TRACK_INFO",
+        "TRACK INFO <target>",
+        false
+      ],
+      [
+        "TRACK_GET",
+        "TRACK GET <target> offset=<byte> length=<1..80>",
+        false
+      ],
+      [
+        "TRACK_PUT_BEGIN",
+        "TRACK PUT_BEGIN <FWD|REV:P1..P5|S2:0..9> count=<n> crc=<hex> rev=<ram_rev>",
+        true
+      ],
+      [
+        "TRACK_PUT_BLOCK",
+        "TRACK PUT_BLOCK <FWD|REV:P1..P5|S2:0..9> offset=<byte> data=<hex-1..80-bytes>",
+        true
+      ],
+      [
+        "TRACK_PUT_END",
+        "TRACK PUT_END <FWD|REV:P1..P5|S2:0..9> count=<n> crc=<hex> rev=<ram_rev>",
+        true
+      ],
+      [
+        "TRACK_RESTORE",
+        "TRACK RESTORE <FWD|REV:P1..P5|S2:0..9> rev=<ram_rev>",
+        true
+      ],
+      [
+        "TRACK_SAVE",
+        "TRACK SAVE <FWD|REV:P1..P5|S2:0..9> rev=<ram_rev>",
+        true
+      ],
+      [
+        "RUN_AUTO",
+        "RUN AUTO rev=<run_rev>",
+        true
+      ],
+      [
+        "RUN_REVERSE",
+        "RUN REVERSE rev=<run_rev>",
+        true
+      ],
+      [
+        "STOP",
+        "STOP",
+        true
+      ],
+      [
+        "HB",
+        "HB",
+        false
+      ]
+    ],
+    "error_prefix": "ERR,rid=<rid>,cmd=<token>,reason=<reason>",
+    "error_reasons": [
+      "UNKNOWN_COMMAND",
+      "TYPE",
+      "RANGE",
+      "STEP",
+      "NONFINITE",
+      "BUSY",
+      "STALE_REVISION",
+      "OWNER_MISMATCH",
+      "NOT_ACTIVE_GROUP",
+      "TRACK_INVALID",
+      "TRACK_FULL",
+      "QUANT_SATURATE",
+      "CRC",
+      "SCHEMA_MISMATCH",
+      "NO_STEERING_SOURCE",
+      "LINK_UNHEALTHY",
+      "NOT_STATIONARY",
+      "FLASH_BUSY",
+      "UPLOAD_STATE",
+      "UNSUPPORTED_TARGET",
+      "REC_MIN_GT_BASE",
+      "S2_REC_MIN_GT_BASE"
+    ],
+    "heartbeat_response": null,
+    "request_prefix": "REQ <rid> ",
+    "track_block_bytes": 80
+  },
+  "protocol_version": 1,
+  "run_options": [
+    {
+      "c_id": "CONTROL_RUN_OPTION_REPLAY_REV",
+      "default": false,
+      "id": "ReplayRev",
+      "persistent": false
+    },
+    {
+      "c_id": "CONTROL_RUN_OPTION_DELAY_START",
+      "default": false,
+      "delay_ms": 5000,
+      "id": "DelayStart",
+      "persistent": false
+    }
+  ],
+  "schema_hash": "511be9173d39f52820162be6d58eefee8129381dc4343b65978ae3b53d5597fb",
+  "schema_version": 1,
+  "telemetry": {
+    "motion": [
+      [
+        "steer_target_count",
+        "zust_count"
+      ],
+      [
+        "steer_actual_count",
+        "zust_count"
+      ],
+      [
+        "steer_target_deg",
+        "deg"
+      ],
+      [
+        "steer_actual_deg",
+        "deg"
+      ],
+      [
+        "left_target_mps",
+        "m/s"
+      ],
+      [
+        "right_target_mps",
+        "m/s"
+      ],
+      [
+        "left_measured_mps",
+        "m/s"
+      ],
+      [
+        "right_measured_mps",
+        "m/s"
+      ],
+      [
+        "left_duty",
+        "pwm_count"
+      ],
+      [
+        "right_duty",
+        "pwm_count"
+      ],
+      [
+        "s_m",
+        "m"
+      ],
+      [
+        "x_m",
+        "m"
+      ],
+      [
+        "y_m",
+        "m"
+      ],
+      [
+        "yaw_deg",
+        "deg"
+      ],
+      [
+        "target_x_m",
+        "m"
+      ],
+      [
+        "target_y_m",
+        "m"
+      ],
+      [
+        "xte_m",
+        "m"
+      ],
+      [
+        "yaw_error_deg",
+        "deg"
+      ],
+      [
+        "pedal_percent",
+        "percent"
+      ],
+      [
+        "pedal_state",
+        "PedalState"
+      ],
+      [
+        "fault_bits",
+        "bitset"
+      ]
+    ],
+    "state": [
+      [
+        "ms",
+        "ms"
+      ],
+      [
+        "control_seq",
+        "count"
+      ],
+      [
+        "speed_seq",
+        "count"
+      ],
+      [
+        "mission_state",
+        "MissionState"
+      ],
+      [
+        "mission_origin",
+        "MissionOrigin"
+      ],
+      [
+        "link_bits",
+        "bitset"
+      ],
+      [
+        "active_group",
+        "owner"
+      ],
+      [
+        "run_revision",
+        "revision"
+      ],
+      [
+        "ReplayRev",
+        "bool"
+      ],
+      [
+        "DelayStart",
+        "bool"
+      ],
+      [
+        "algorithm_bitmap",
+        "bitset"
+      ],
+      [
+        "mutation_allowed",
+        "bool"
+      ],
+      [
+        "mutation_block_reason",
+        "error_token"
+      ]
+    ],
+    "timing": [
+      [
+        "control_max_us",
+        "us"
+      ],
+      [
+        "control_overruns",
+        "count"
+      ],
+      [
+        "speed_max_us",
+        "us"
+      ],
+      [
+        "speed_overruns",
+        "count"
+      ],
+      [
+        "menu_max_us",
+        "us"
+      ],
+      [
+        "menu_overruns",
+        "count"
+      ],
+      [
+        "asr_max_us",
+        "us"
+      ],
+      [
+        "asr_overruns",
+        "count"
+      ],
+      [
+        "abs_spi_max_us",
+        "us"
+      ],
+      [
+        "abs_crc_errors",
+        "count"
+      ],
+      [
+        "abs_bad_frames",
+        "count"
+      ]
+    ]
+  },
+  "trajectory": {
+    "crc": "CRC-32/ISO-HDLC",
+    "encodings": {
+      "lossless": {
+        "point_bytes": 20
+      },
+      "quantized": {
+        "ds_lsb_m": 0.0001,
+        "dyaw_lsb_deg": 0.01,
+        "point_bytes": 6,
+        "steer_lsb_zust_count": 2
+      }
+    },
+    "fields": [
+      {
+        "id": "s_m",
+        "type": "float32",
+        "unit": "m"
+      },
+      {
+        "id": "yaw_deg",
+        "type": "float32",
+        "unit": "deg"
+      },
+      {
+        "id": "steer_deg",
+        "range_source": "vehicle_steering_calibration",
+        "type": "float32",
+        "unit": "deg"
+      },
+      {
+        "id": "x_m",
+        "type": "float32",
+        "unit": "m"
+      },
+      {
+        "id": "y_m",
+        "type": "float32",
+        "unit": "m"
+      }
+    ],
+    "format_version": 1,
+    "hard_validation": {
+      "duplicate_epsilon_m": 0.0001,
+      "max_segment_m": 3.0,
+      "require_finite": true,
+      "require_signed_monotonic_s": true
+    },
+    "header_words": 8,
+    "slots": [
+      {
+        "base_page": 0,
+        "encoding": "quantized",
+        "id": "S2_OUT_1",
+        "max_points": 256,
+        "pages": 2,
+        "target": "S2:0"
+      },
+      {
+        "base_page": 2,
+        "encoding": "quantized",
+        "id": "S2_OUT_2",
+        "max_points": 256,
+        "pages": 2,
+        "target": "S2:1"
+      },
+      {
+        "base_page": 4,
+        "encoding": "quantized",
+        "id": "S2_OUT_3",
+        "max_points": 256,
+        "pages": 2,
+        "target": "S2:2"
+      },
+      {
+        "base_page": 6,
+        "encoding": "quantized",
+        "id": "S2_OUT_4",
+        "max_points": 256,
+        "pages": 2,
+        "target": "S2:3"
+      },
+      {
+        "base_page": 8,
+        "encoding": "quantized",
+        "id": "S2_OUT_5",
+        "max_points": 256,
+        "pages": 2,
+        "target": "S2:4"
+      },
+      {
+        "base_page": 10,
+        "encoding": "quantized",
+        "id": "S2_RETURN_1",
+        "max_points": 256,
+        "pages": 2,
+        "target": "S2:5"
+      },
+      {
+        "base_page": 12,
+        "encoding": "quantized",
+        "id": "S2_RETURN_2",
+        "max_points": 256,
+        "pages": 2,
+        "target": "S2:6"
+      },
+      {
+        "base_page": 14,
+        "encoding": "quantized",
+        "id": "S2_RETURN_3",
+        "max_points": 256,
+        "pages": 2,
+        "target": "S2:7"
+      },
+      {
+        "base_page": 16,
+        "encoding": "quantized",
+        "id": "S2_RETURN_4",
+        "max_points": 256,
+        "pages": 2,
+        "target": "S2:8"
+      },
+      {
+        "base_page": 18,
+        "encoding": "quantized",
+        "id": "S2_RETURN_5",
+        "max_points": 256,
+        "pages": 2,
+        "target": "S2:9"
+      },
+      {
+        "base_page": 20,
+        "encoding": "lossless",
+        "id": "REVERSE_P1",
+        "max_points": 191,
+        "pages": 3,
+        "target": "REV:P1"
+      },
+      {
+        "base_page": 23,
+        "encoding": "lossless",
+        "id": "REVERSE_P2",
+        "max_points": 191,
+        "pages": 3,
+        "target": "REV:P2"
+      },
+      {
+        "base_page": 26,
+        "encoding": "lossless",
+        "id": "REVERSE_P3",
+        "max_points": 191,
+        "pages": 3,
+        "target": "REV:P3"
+      },
+      {
+        "base_page": 29,
+        "encoding": "lossless",
+        "id": "REVERSE_P4",
+        "max_points": 191,
+        "pages": 3,
+        "target": "REV:P4"
+      },
+      {
+        "base_page": 32,
+        "encoding": "lossless",
+        "id": "REVERSE_P5",
+        "max_points": 191,
+        "pages": 3,
+        "target": "REV:P5"
+      },
+      {
+        "base_page": 35,
+        "encoding": "lossless",
+        "id": "FORWARD",
+        "max_points": 2750,
+        "pages": 28,
+        "target": "FWD"
+      },
+      {
+        "base_page": null,
+        "encoding": "ram-only",
+        "id": "SUBJECT3_RAM",
+        "max_points": 256,
+        "pages": 0,
+        "target": "S3"
+      }
+    ],
+    "warning_validation": {
+      "dense_segment_m": 0.002,
+      "max_abs_curvature_inv_m": 0.8,
+      "max_adjacent_steer_delta_deg": 8.0,
+      "opposite_steer_sign": true,
+      "steer_geometry_mismatch_deg": 10.0
+    }
+  },
+  "units": {
+    "byte_order": "little-endian",
+    "float_format": "IEEE-754-binary32",
+    "legacy_zust_count_per_deg": 1300.0,
+    "zust_count_per_deg": 900.0
+  },
+  "zust_baseline": "7edd1b7a74d31f6458e74593acc36bbf3e8190b5",
+  "guardrails": {
+    "_comment": "P0-2 安全护栏声明(设计文档 docs/2026-08-14-p0-*.md §2)。桥/session_driver/mcp_server 三层共读。⚠ rollback 阈值为占位初值,随 score_profile 一同校准。",
+    "set_patterns": [
+      "DATA SET P{p} {param} {value}",
+      "SET {param} {value}"
+    ],
+    "forbidden_commands": [
+      "MISSION RETURN",
+      "MISSION EVENT",
+      "MISSION LEARN"
+    ],
+    "unmatched_policy": "allow",
+    "max_step": {
+      "default": null,
+      "per_param": {
+        "YawKp": 1.5,
+        "HorizK": 1.5,
+        "Speed_Kp_L": 1.0,
+        "Speed_Kp_R": 1.0,
+        "Speed_Ki_L": 0.5,
+        "Speed_Ki_R": 0.5
+      }
+    },
+    "rollback": {
+      "on_apply_fail": true,
+      "score_min": 30.0,
+      "metrics": [
+        {"key": "xte_mean_m", "max": 0.25},
+        {"key": "rev", "max": 15}
+      ]
+    }
+  },
+  "actions": [
+    {
+      "_comment": "P2 安全动作声明(前端 SafetyActions 消费;桥/driver/MCP 通用核不读)。command 引用 protocol.commands 模板名;active_when 对遥测求值(mission_state 按 MissionState 枚举名匹配)。",
+      "id": "stop",
+      "label": "STOP",
+      "command": "STOP",
+      "danger": true,
+      "hotkeys": ["Space", "Escape"],
+      "retry": {"count": 3, "interval_ms": 200},
+      "active_when": {"stream": "state", "field": "mission_state", "in": ["RUNNING"]}
+    }
+  ]
+}

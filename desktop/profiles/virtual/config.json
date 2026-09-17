@@ -1,0 +1,90 @@
+{
+  "app_title": "TT Virtual Device — 契约 v1 演示",
+  "network": {
+    "http_host": "127.0.0.1",
+    "http_port": 9898
+  },
+  "protocol": {
+    "frame_mode": "csv",
+    "telemetry_prefixes": ["D"],
+    "response_prefixes": ["OK", "ERR", "P"],
+    "err_prefixes": ["ERR"],
+    "key_map": {},
+    "channels": {
+      "ctl":    {"fields": ["setpoint", "pos", "err", "duty"]},
+      "params": {"fields": ["kp", "ki", "kd", "max_speed", "amp", "freq", "noise"]},
+      "stats":  {"fields": ["uptime_s", "frames", "dropped"]}
+    }
+  },
+  "ui": {
+    "plot_channels": [
+      {"key": "setpoint", "color": "#38bdf8", "visible": true},
+      {"key": "pos",      "color": "#34d399", "visible": true},
+      {"key": "err",      "color": "#f87171", "visible": true},
+      {"key": "duty",     "color": "#fbbf24", "visible": false},
+      {"key": "kp",       "color": "#a78bfa", "visible": false},
+      {"key": "kd",       "color": "#fde047", "visible": false}
+    ],
+    "primary_metrics": [
+      {"key": "setpoint", "label": "SETPOINT"},
+      {"key": "pos",      "label": "POS"},
+      {"key": "err",      "label": "ERR"},
+      {"key": "duty",     "label": "DUTY"}
+    ],
+    "detail_metrics": [
+      {"key": "kp",        "label": "KP"},
+      {"key": "ki",        "label": "KI"},
+      {"key": "kd",        "label": "KD"},
+      {"key": "max_speed", "label": "MAX_SPEED"},
+      {"key": "uptime_s",  "label": "UPTIME_S"}
+    ],
+    "extended_metrics": [
+      {"key": "amp",    "label": "AMP"},
+      {"key": "freq",   "label": "FREQ"},
+      {"key": "noise",  "label": "NOISE"},
+      {"key": "frames", "label": "FRAMES"},
+      {"key": "dropped","label": "DROPPED"}
+    ],
+    "accent_color": null,
+    "max_plot_points": 3000
+  },
+  "commands": {
+    "quick_commands": [
+      {"label": "SET kp 2.0",    "command": "SET kp 2.0"},
+      {"label": "SET kp 0.5",    "command": "SET kp 0.5"},
+      {"label": "SET kd 0.2",    "command": "SET kd 0.2"},
+      {"label": "RATE ctl 100",  "command": "RATE ctl 100"},
+      {"label": "RATE ctl 20",   "command": "RATE ctl 20"},
+      {"label": "GET kp",        "command": "GET kp"}
+    ],
+    "custom_tabs": [
+      {
+        "name": "PID",
+        "fields": [
+          {"key": "kp",   "label": "KP"},
+          {"key": "ki",   "label": "KI"},
+          {"key": "kd",   "label": "KD"},
+          {"key": "err",  "label": "TRACKING ERR"},
+          {"key": "duty", "label": "DUTY %"}
+        ],
+        "result_keys": []
+      }
+    ],
+    "command_tabs": []
+  },
+  "simulation": {
+    "enabled": false,
+    "prefix": "TELG"
+  },
+  "custom_state_file": null,
+  "auto_open_browser": false,
+  "auto_start_tcp": true,
+  "bridge_extension": null,
+  "tcp_host": "0.0.0.0",
+  "tcp_port": "8080",
+  "heartbeat": {
+    "enabled": false,
+    "command": "HB",
+    "interval_ms": 2000
+  }
+}

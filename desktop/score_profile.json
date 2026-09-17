@@ -1,0 +1,15 @@
+{
+  "_comment": "P1 评分 profile(领域数据, 设计文档 docs/2026-08-13-agent-auto-tuning-p1-p2-p4.md §2). 指标键 = session_driver.report_metrics() 输出键. ⚠ 权重/ref/阈值均为占位初值, 未按实车经验校准前 pass/fail 无物理意义 —— 调车人按 TUNING_PLAYBOOK 校准后生效.",
+  "profile_version": 1,
+  "missing_metric": "fail",
+  "metrics": [
+    {"key": "xte_mean_m",         "weight": 0.30, "direction": "lower",  "ref": 0.05, "pass_max": 0.10,
+     "per_segment": true, "segment_aggregation": "mean"},
+    {"key": "xte_max_m",          "weight": 0.10, "direction": "lower",  "ref": 0.15,
+     "per_segment": true, "segment_aggregation": "worst"},
+    {"key": "rev",                "weight": 0.20, "direction": "lower",  "ref": 6.0,  "pass_max": 12},
+    {"key": "dstr_deg_per_frame", "weight": 0.10, "direction": "lower",  "ref": 2.0},
+    {"key": "duty_sat_pct",       "weight": 0.10, "direction": "lower",  "ref": 20.0},
+    {"key": "gnd_mean_ms",        "weight": 0.20, "direction": "higher", "ref": 1.5,  "pass_min": 0.8}
+  ]
+}

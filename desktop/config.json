@@ -1,77 +1,1308 @@
 {
-  "app_title": "SmartCar Tuning Tool",
-
+  "app_title": "SmartCar Tuning Tool — Turn + Drive PID",
   "network": {
     "http_host": "127.0.0.1",
     "http_port": 9898
   },
-
   "protocol": {
-    "telemetry_prefixes": ["TEL", "TELG", "TELA"],
-    "response_prefixes": ["ACK", "ERR"],
-    "key_map": {}
+    "telemetry_prefixes": [
+      "TEL",
+      "TELG",
+      "TELA",
+      "TELTURN",
+      "TELDRIVE",
+      "TELY",
+      "TELINS",
+      "TELPLAY",
+      "TELPT",
+      "TELPTDUMP",
+      "TELINSENC",
+      "TELODOM",
+      "TELENR",
+      "TELMISSION",
+      "TELTUNE",
+      "TELLOOKA",
+      "TELSTATS",
+      "TELSEL",
+      "TELISR",
+      "TELDSSTAT",
+      "TELDSBALL",
+      "TELDSIMU",
+      "TELDSENC",
+      "TELDSPARAM",
+      "TELDSCAP",
+      "TELDSRUN",
+      "TELDSDRIVE",
+      "TELDST3",
+      "TELDST3PARAM"
+    ],
+    "response_prefixes": [
+      "ACK",
+      "ERR",
+      "YAWCAL",
+      "YAWTEST"
+    ],
+    "key_map": {
+      "gzr": "gz_raw",
+      "gzb": "gz_bias",
+      "gzc": "gz_comp",
+      "gzs": "gz_scale",
+      "gzd": "gz_scaled",
+      "yi": "yaw_int",
+      "yf": "yaw_final",
+      "yc": "yaw_corr",
+      "dt": "dt_us",
+      "dbg": "yaw_dbg",
+      "ver": "yaw_param_ver",
+      "ton": "yaw_test_on",
+      "tst": "yaw_test_start",
+      "tdl": "yaw_test_last_delta",
+      "zb": "yaw_zero_busy",
+      "zok": "yaw_zero_ok",
+      "zn": "yaw_zero_n",
+      "zgz": "yaw_zero_gbz"
+    }
   },
-
   "ui": {
     "plot_channels": [
-      {"key": "gx",   "color": "#4fc3f7", "visible": true},
-      {"key": "gy",   "color": "#81c784", "visible": true},
-      {"key": "gz",   "color": "#e57373", "visible": true},
-      {"key": "gxyz", "color": "#ba68c8", "visible": true}
+      {
+        "key": "t_tgt",
+        "color": "#38bdf8",
+        "visible": true
+      },
+      {
+        "key": "t_cur",
+        "color": "#fbbf24",
+        "visible": true
+      },
+      {
+        "key": "t_err",
+        "color": "#f87171",
+        "visible": false
+      },
+      {
+        "key": "d_tgt",
+        "color": "#a78bfa",
+        "visible": false
+      },
+      {
+        "key": "d_mL",
+        "color": "#34d399",
+        "visible": false
+      },
+      {
+        "key": "d_mR",
+        "color": "#f472b6",
+        "visible": false
+      },
+      {
+        "key": "d_dL",
+        "color": "#22d3ee",
+        "visible": false
+      },
+      {
+        "key": "d_dR",
+        "color": "#fb923c",
+        "visible": false
+      },
+      {
+        "key": "d_eL",
+        "color": "#4ade80",
+        "visible": false
+      },
+      {
+        "key": "d_eR",
+        "color": "#fde047",
+        "visible": false
+      },
+      {
+        "key": "gx",
+        "color": "#818cf8",
+        "visible": false
+      },
+      {
+        "key": "gy",
+        "color": "#34d399",
+        "visible": false
+      },
+      {
+        "key": "gz",
+        "color": "#f87171",
+        "visible": false
+      },
+      {
+        "key": "gxyz",
+        "color": "#c084fc",
+        "visible": false
+      },
+      {
+        "key": "m_xte",
+        "color": "#fb7185",
+        "visible": false
+      },
+      {
+        "key": "m_yer",
+        "color": "#fbbf24",
+        "visible": false
+      },
+      {
+        "key": "m_str",
+        "color": "#a78bfa",
+        "visible": false
+      },
+      {
+        "key": "m_spd",
+        "color": "#34d399",
+        "visible": false
+      }
     ],
     "primary_metrics": [
-      {"key": "gx",   "label": "GX"},
-      {"key": "gy",   "label": "GY"},
-      {"key": "gz",   "label": "GZ"},
-      {"key": "gxyz", "label": "GXYZ"}
+      {
+        "key": "t_tgt",
+        "label": "TURN TGT"
+      },
+      {
+        "key": "t_cur",
+        "label": "TURN CUR"
+      },
+      {
+        "key": "d_tgt",
+        "label": "DRIVE TGT"
+      },
+      {
+        "key": "d_mL",
+        "label": "DRIVE mL"
+      }
     ],
     "detail_metrics": [
-      {"key": "roll",     "label": "ROLL"},
-      {"key": "pitch",    "label": "PITCH"},
-      {"key": "yaw",      "label": "YAW"},
-      {"key": "anorm",    "label": "ANORM"},
-      {"key": "bias_ok",  "label": "BIAS_OK"},
-      {"key": "bias_cal", "label": "BIAS_CAL"},
-      {"key": "bias_n",   "label": "BIAS_N"},
-      {"key": "bias_t",   "label": "BIAS_T"}
+      {
+        "key": "t_err",
+        "label": "TURN ERR"
+      },
+      {
+        "key": "t_en",
+        "label": "TURN EN"
+      },
+      {
+        "key": "t_kp",
+        "label": "TURN KP"
+      },
+      {
+        "key": "t_ki",
+        "label": "TURN KI"
+      },
+      {
+        "key": "t_kd",
+        "label": "TURN KD"
+      },
+      {
+        "key": "d_mR",
+        "label": "DRIVE mR"
+      },
+      {
+        "key": "d_dL",
+        "label": "DRIVE dL"
+      },
+      {
+        "key": "d_dR",
+        "label": "DRIVE dR"
+      }
     ],
     "extended_metrics": [
-      {"key": "gcx",        "label": "GCX"},
-      {"key": "gcy",        "label": "GCY"},
-      {"key": "gcz",        "label": "GCZ"},
-      {"key": "gbx",        "label": "GBX"},
-      {"key": "gby",        "label": "GBY"},
-      {"key": "gbz",        "label": "GBZ"},
-      {"key": "bias_flash", "label": "FLASH"},
-      {"key": "q0",         "label": "Q0"},
-      {"key": "q1",         "label": "Q1"},
-      {"key": "q2",         "label": "Q2"},
-      {"key": "q3",         "label": "Q3"},
-      {"key": "ax",         "label": "AX"},
-      {"key": "ay",         "label": "AY"},
-      {"key": "az",         "label": "AZ"},
-      {"key": "anorm",      "label": "ANORM"},
-      {"key": "att_upd",    "label": "ATT_UPD"}
+      {
+        "key": "d_eL",
+        "label": "DRIVE eL"
+      },
+      {
+        "key": "d_eR",
+        "label": "DRIVE eR"
+      },
+      {
+        "key": "roll",
+        "label": "ROLL"
+      },
+      {
+        "key": "pitch",
+        "label": "PITCH"
+      },
+      {
+        "key": "yaw",
+        "label": "YAW"
+      },
+      {
+        "key": "anorm",
+        "label": "ANORM"
+      },
+      {
+        "key": "bias_ok",
+        "label": "BIAS_OK"
+      },
+      {
+        "key": "bias_cal",
+        "label": "BIAS_CAL"
+      },
+      {
+        "key": "gx",
+        "label": "GX"
+      },
+      {
+        "key": "gy",
+        "label": "GY"
+      },
+      {
+        "key": "gz",
+        "label": "GZ"
+      },
+      {
+        "key": "gxyz",
+        "label": "GXYZ"
+      },
+      {
+        "key": "gcx",
+        "label": "GCX"
+      },
+      {
+        "key": "gcy",
+        "label": "GCY"
+      },
+      {
+        "key": "gcz",
+        "label": "GCZ"
+      },
+      {
+        "key": "gbx",
+        "label": "GBX"
+      },
+      {
+        "key": "gby",
+        "label": "GBY"
+      },
+      {
+        "key": "gbz",
+        "label": "GBZ"
+      },
+      {
+        "key": "bias_flash",
+        "label": "FLASH"
+      },
+      {
+        "key": "q0",
+        "label": "Q0"
+      },
+      {
+        "key": "q1",
+        "label": "Q1"
+      },
+      {
+        "key": "q2",
+        "label": "Q2"
+      },
+      {
+        "key": "q3",
+        "label": "Q3"
+      },
+      {
+        "key": "ax",
+        "label": "AX"
+      },
+      {
+        "key": "ay",
+        "label": "AY"
+      },
+      {
+        "key": "az",
+        "label": "AZ"
+      },
+      {
+        "key": "att_upd",
+        "label": "ATT_UPD"
+      },
+      {
+        "key": "L_vg",
+        "label": "INSENC_L_VG"
+      },
+      {
+        "key": "L_pg",
+        "label": "INSENC_L_PG"
+      },
+      {
+        "key": "L_sr",
+        "label": "INSENC_L_SR"
+      },
+      {
+        "key": "R_vg",
+        "label": "INSENC_R_VG"
+      },
+      {
+        "key": "R_pg",
+        "label": "INSENC_R_PG"
+      },
+      {
+        "key": "R_sr",
+        "label": "INSENC_R_SR"
+      },
+      {
+        "key": "L_spd",
+        "label": "L_ENC_SPD"
+      },
+      {
+        "key": "R_spd",
+        "label": "R_ENC_SPD"
+      },
+      {
+        "key": "ins_spd",
+        "label": "INS_SPD"
+      },
+      {
+        "key": "ins_vx",
+        "label": "INS_VX"
+      },
+      {
+        "key": "ins_vy",
+        "label": "INS_VY"
+      },
+      {
+        "key": "txb",
+        "label": "STATS_TX_BYTES"
+      },
+      {
+        "key": "rxb",
+        "label": "STATS_RX_BYTES"
+      },
+      {
+        "key": "txo",
+        "label": "STATS_TX_OVERFLOW"
+      },
+      {
+        "key": "rxo",
+        "label": "STATS_RX_OVERFLOW"
+      },
+      {
+        "key": "txfail",
+        "label": "STATS_TX_FAIL"
+      },
+      {
+        "key": "txhi",
+        "label": "STATS_TX_HIWATER"
+      },
+      {
+        "key": "rxhi",
+        "label": "STATS_RX_HIWATER"
+      },
+      {
+        "key": "reconn",
+        "label": "STATS_RECONN"
+      },
+      {
+        "key": "alive",
+        "label": "STATS_CPU1_ALIVE"
+      },
+      {
+        "key": "wd",
+        "label": "STATS_CPU1_DEAD"
+      },
+      {
+        "key": "ppmm",
+        "label": "STATS_PINGPONG_MISMATCH"
+      },
+      {
+        "key": "m_st",
+        "label": "MISSION_STATE (0=IDLE/1=EVENT1/2=LEARN/3=RETURN/4=ABORT)"
+      },
+      {
+        "key": "m_eng",
+        "label": "MISSION_ENGAGED (0/1)"
+      },
+      {
+        "key": "m_ps",
+        "label": "PLAYBACK_STATE (0/1/2)"
+      },
+      {
+        "key": "m_pts",
+        "label": "PLAYBACK_TOTAL_PTS"
+      },
+      {
+        "key": "m_rec_pts",
+        "label": "RECORD_PTS"
+      },
+      {
+        "key": "m_idx",
+        "label": "CURSOR_IDX"
+      },
+      {
+        "key": "m_dst",
+        "label": "TGT_DIST_M"
+      },
+      {
+        "key": "m_xte",
+        "label": "CROSS_TRACK_ERR_M"
+      },
+      {
+        "key": "m_tgy",
+        "label": "TGT_YAW_DEG"
+      },
+      {
+        "key": "m_yer",
+        "label": "YAW_ERR_DEG"
+      },
+      {
+        "key": "m_scmd",
+        "label": "SPEED_CMD_MS"
+      },
+      {
+        "key": "m_str",
+        "label": "STEER_OUT_DEG"
+      },
+      {
+        "key": "m_spd",
+        "label": "SPEED_OUT_MMS"
+      },
+      {
+        "key": "m_cpx",
+        "label": "CUR_PX_M"
+      },
+      {
+        "key": "m_cpy",
+        "label": "CUR_PY_M"
+      },
+      {
+        "key": "m_tpx",
+        "label": "TGT_PX_M"
+      },
+      {
+        "key": "m_tpy",
+        "label": "TGT_PY_M"
+      },
+      {
+        "key": "m_cyaw",
+        "label": "CUR_YAW_DEG"
+      },
+      {
+        "key": "m_kp",
+        "label": "STEER_KP"
+      },
+      {
+        "key": "m_cap",
+        "label": "SPEED_CAP_MMS"
+      },
+      {
+        "key": "m_lost",
+        "label": "LOST_PATH_FLAG (sticky)"
+      },
+      {
+        "key": "m_brk",
+        "label": "BRAKE_PRESSED (1=ABORT trigger!)"
+      },
+      {
+        "key": "m_brkv",
+        "label": "BRAKE_ADC_VALID"
+      },
+      {
+        "key": "m_de",
+        "label": "DRIVE_ENABLE (dir-key)"
+      },
+      {
+        "key": "m_la",
+        "label": "LOOKAHEAD_MM"
+      },
+      {
+        "key": "m_blnd",
+        "label": "HEAD_BLEND (0=geo,1=rec)"
+      },
+      {
+        "key": "m_laidx",
+        "label": "LOOKAHEAD_IDX"
+      },
+      {
+        "key": "m_ladst",
+        "label": "LOOKAHEAD_DIST_M"
+      },
+      {
+        "key": "m_lageo",
+        "label": "LA_GEO_YAW_DEG"
+      },
+      {
+        "key": "m_larec",
+        "label": "LA_REC_YAW_DEG"
+      },
+      {
+        "key": "m_ox",
+        "label": "ORIGIN_OFFSET_X_M"
+      },
+      {
+        "key": "m_oy",
+        "label": "ORIGIN_OFFSET_Y_M"
+      },
+      {
+        "key": "m_oyaw",
+        "label": "ORIGIN_OFFSET_YAW_DEG"
+      }
     ],
     "accent_color": null,
-    "max_plot_points": 2000
+    "max_plot_points": 3000
   },
-
   "commands": {
     "quick_commands": [
-      {"label": "GET PID",  "command": "GET PID"},
-      {"label": "SAVE PID", "command": "SAVE PID"}
+      {
+        "label": "GET TURN PID",
+        "command": "GET TURN PID"
+      },
+      {
+        "label": "START STREAM TURN",
+        "command": "START STREAM TURN 50"
+      },
+      {
+        "label": "STOP STREAM TURN",
+        "command": "STOP STREAM TURN"
+      },
+      {
+        "label": "GET DRIVE LEFT PID",
+        "command": "GET DRIVE LEFT PID"
+      },
+      {
+        "label": "GET DRIVE RIGHT PID",
+        "command": "GET DRIVE RIGHT PID"
+      },
+      {
+        "label": "START STREAM DRIVE",
+        "command": "START STREAM DRIVE 50"
+      },
+      {
+        "label": "STOP STREAM DRIVE",
+        "command": "STOP STREAM DRIVE"
+      },
+      {
+        "label": "STOP ALL STREAMS",
+        "command": "STOP ALL STREAMS"
+      },
+      {
+        "label": "LIST STREAMS",
+        "command": "LIST STREAMS"
+      },
+      {
+        "label": "START STREAM STATS",
+        "command": "START STREAM STATS 1000"
+      },
+      {
+        "label": "GET ONCE STATS",
+        "command": "GET ONCE STATS"
+      },
+      {
+        "label": "STOP STREAM STATS",
+        "command": "STOP STREAM STATS"
+      },
+      {
+        "label": "GET MISSION",
+        "command": "GET MISSION"
+      },
+      {
+        "label": "START STREAM MISSION",
+        "command": "START STREAM MISSION 100"
+      },
+      {
+        "label": "STOP STREAM MISSION",
+        "command": "STOP STREAM MISSION"
+      },
+      {
+        "label": "START STREAM TUNE",
+        "command": "START STREAM TUNE 50"
+      },
+      {
+        "label": "STOP STREAM TUNE",
+        "command": "STOP STREAM TUNE"
+      },
+      {
+        "label": "START STREAM LOOKA",
+        "command": "START STREAM LOOKA 50"
+      },
+      {
+        "label": "STOP STREAM LOOKA",
+        "command": "STOP STREAM LOOKA"
+      },
+      {
+        "label": "MISSION ABORT (!)",
+        "command": "MISSION ABORT"
+      }
     ],
-    "custom_tabs": [],
-    "command_tabs": []
+    "custom_tabs": [
+      {
+        "name": "Turn Status",
+        "fields": [
+          {
+            "key": "t_tgt",
+            "label": "TARGET (deg)"
+          },
+          {
+            "key": "t_cur",
+            "label": "CURRENT (deg)"
+          },
+          {
+            "key": "t_err",
+            "label": "ERROR (deg)"
+          },
+          {
+            "key": "t_en",
+            "label": "MOTOR EN"
+          },
+          {
+            "key": "t_kp",
+            "label": "KP"
+          },
+          {
+            "key": "t_ki",
+            "label": "KI"
+          },
+          {
+            "key": "t_kd",
+            "label": "KD"
+          }
+        ],
+        "result_keys": [
+          {
+            "prefix": "ACK",
+            "var_key": "turn_last_ack"
+          }
+        ]
+      },
+      {
+        "name": "Drive Status",
+        "fields": [
+          {
+            "key": "d_tgt",
+            "label": "TARGET (mm/s)"
+          },
+          {
+            "key": "d_mL",
+            "label": "MEASURED L (mm/s)"
+          },
+          {
+            "key": "d_mR",
+            "label": "MEASURED R (mm/s)"
+          },
+          {
+            "key": "d_dL",
+            "label": "DUTY L"
+          },
+          {
+            "key": "d_dR",
+            "label": "DUTY R"
+          },
+          {
+            "key": "d_eL",
+            "label": "ERROR L"
+          },
+          {
+            "key": "d_eR",
+            "label": "ERROR R"
+          }
+        ],
+        "result_keys": [
+          {
+            "prefix": "ACK",
+            "var_key": "drive_last_ack"
+          }
+        ]
+      },
+      {
+        "name": "Yaw / INS (Aux)",
+        "fields": [
+          {
+            "key": "gz_raw",
+            "label": "GZ_RAW"
+          },
+          {
+            "key": "gz_comp",
+            "label": "GZ_COMP"
+          },
+          {
+            "key": "yaw_final",
+            "label": "YAW_FINAL"
+          },
+          {
+            "key": "yaw_param_ver",
+            "label": "YAW_PARAM_VER"
+          },
+          {
+            "key": "L_spd",
+            "label": "L_SPD_MS"
+          },
+          {
+            "key": "R_spd",
+            "label": "R_SPD_MS"
+          },
+          {
+            "key": "ins_spd",
+            "label": "INS_SPD_MS"
+          }
+        ],
+        "result_keys": [
+          {
+            "prefix": "ACK",
+            "var_key": "aux_last_ack"
+          },
+          {
+            "prefix": "YAWCAL",
+            "var_key": "yaw_last_cal"
+          },
+          {
+            "prefix": "YAWTEST",
+            "var_key": "yaw_last_test"
+          }
+        ]
+      },
+      {
+        "name": "Safety Gates (TELMISSION)",
+        "fields": [
+          {
+            "key": "m_st",
+            "label": "STATE  (0=IDLE/1=EVENT1/2=LEARN/3=RETURN/4=ABORT) -- 4 means a gate fired"
+          },
+          {
+            "key": "m_eng",
+            "label": "ENGAGED  (1=actuator writing) -- gates only relevant when 1"
+          },
+          {
+            "key": "m_brk",
+            "label": "GATE 1  BRAKE_PRESSED -- 1 = brake edge will/did ABORT"
+          },
+          {
+            "key": "m_brkv",
+            "label": "        BRAKE_ADC_VALID -- 0 = brake input floating, can mask gate 1"
+          },
+          {
+            "key": "m_de",
+            "label": "GATE 2  DRIVE_ENABLE / DIR_KEY ON -- edge-flip aborts mission"
+          },
+          {
+            "key": "m_lost",
+            "label": "GATE 5  LOST_PATH_FLAG (sticky this engage) -- watchdog dist>2m for 1s"
+          },
+          {
+            "key": "m_dst",
+            "label": "        TGT_DIST_M (watchdog input)  -- > 2 sustained 1s = ABORT"
+          },
+          {
+            "key": "m_xte",
+            "label": "        XTE (m, signed) -- supplementary tracking error"
+          },
+          {
+            "key": "tcp",
+            "label": "        TCP_STATUS  (1=connected, gate 3/4 unreachable when 0)"
+          }
+        ],
+        "result_keys": [
+          {
+            "prefix": "ACK",
+            "var_key": "safety_last_ack"
+          },
+          {
+            "prefix": "ERR",
+            "var_key": "safety_last_err"
+          }
+        ]
+      },
+      {
+        "name": "Mission Status (TELMISSION)",
+        "fields": [
+          {
+            "key": "m_st",
+            "label": "STATE (0=IDLE/1=EVENT1/2=LEARN/3=RETURN/4=ABORT)"
+          },
+          {
+            "key": "m_eng",
+            "label": "ENGAGED (1=actuator writing)"
+          },
+          {
+            "key": "m_ps",
+            "label": "PLAYBACK (0=IDLE/1=READY/2=RUN)"
+          },
+          {
+            "key": "m_pts",
+            "label": "PB_TOTAL_PTS"
+          },
+          {
+            "key": "m_rec_pts",
+            "label": "REC_PTS"
+          },
+          {
+            "key": "m_idx",
+            "label": "CURSOR_IDX"
+          },
+          {
+            "key": "m_dst",
+            "label": "TGT_DIST (m)"
+          },
+          {
+            "key": "m_xte",
+            "label": "XTE (m)  +=left / -=right"
+          },
+          {
+            "key": "m_yer",
+            "label": "YAW_ERR (deg)"
+          },
+          {
+            "key": "m_str",
+            "label": "STEER_OUT (deg, last write)"
+          },
+          {
+            "key": "m_spd",
+            "label": "SPEED_OUT (mm/s, last write)"
+          },
+          {
+            "key": "m_kp",
+            "label": "STEER_KP"
+          },
+          {
+            "key": "m_cap",
+            "label": "SPEED_CAP (mm/s)"
+          },
+          {
+            "key": "m_la",
+            "label": "LOOKAHEAD (mm)"
+          },
+          {
+            "key": "m_blnd",
+            "label": "HEAD_BLEND"
+          },
+          {
+            "key": "m_lost",
+            "label": "LOST (1=watchdog fired this engage)"
+          },
+          {
+            "key": "m_brk",
+            "label": "BRAKE_PRESSED (1=will ABORT)"
+          },
+          {
+            "key": "m_brkv",
+            "label": "BRAKE_ADC_VALID"
+          },
+          {
+            "key": "m_de",
+            "label": "DIR_KEY_ON"
+          },
+          {
+            "key": "m_cpx",
+            "label": "CUR_PX (m)"
+          },
+          {
+            "key": "m_cpy",
+            "label": "CUR_PY (m)"
+          },
+          {
+            "key": "m_tpx",
+            "label": "TGT_PX (m)"
+          },
+          {
+            "key": "m_tpy",
+            "label": "TGT_PY (m)"
+          },
+          {
+            "key": "m_cyaw",
+            "label": "CUR_YAW (deg)"
+          },
+          {
+            "key": "m_ox",
+            "label": "ORIGIN_OFFSET_X (m)"
+          },
+          {
+            "key": "m_oy",
+            "label": "ORIGIN_OFFSET_Y (m)"
+          },
+          {
+            "key": "m_oyaw",
+            "label": "ORIGIN_OFFSET_YAW (deg)"
+          }
+        ],
+        "result_keys": [
+          {
+            "prefix": "ACK",
+            "var_key": "mission_last_ack"
+          }
+        ]
+      },
+      {
+        "name": "Tuning Live (TELTUNE)",
+        "fields": [
+          {
+            "key": "m_st",
+            "label": "STATE"
+          },
+          {
+            "key": "m_eng",
+            "label": "ENGAGED"
+          },
+          {
+            "key": "m_idx",
+            "label": "CURSOR_IDX"
+          },
+          {
+            "key": "m_xte",
+            "label": "XTE (m)  -- main signal for KP tuning"
+          },
+          {
+            "key": "m_yer",
+            "label": "YAW_ERR (deg)"
+          },
+          {
+            "key": "m_str",
+            "label": "STEER_OUT (deg, last write)"
+          },
+          {
+            "key": "m_spd",
+            "label": "SPEED_OUT (mm/s, last write)"
+          }
+        ],
+        "result_keys": []
+      },
+      {
+        "name": "Lookahead Tuning (TELLOOKA)",
+        "fields": [
+          {
+            "key": "m_st",
+            "label": "STATE"
+          },
+          {
+            "key": "m_eng",
+            "label": "ENGAGED"
+          },
+          {
+            "key": "m_idx",
+            "label": "CURSOR_IDX"
+          },
+          {
+            "key": "m_xte",
+            "label": "XTE (m)"
+          },
+          {
+            "key": "m_yer",
+            "label": "YAW_ERR (deg)"
+          },
+          {
+            "key": "m_str",
+            "label": "STEER_OUT (deg)"
+          },
+          {
+            "key": "m_spd",
+            "label": "SPEED_OUT (mm/s)"
+          },
+          {
+            "key": "m_ladst",
+            "label": "LA_DIST (m)  -- < 0.15 = LA too small"
+          },
+          {
+            "key": "m_lageo",
+            "label": "LA_GEO_YAW (deg)  -- atan2 to aim"
+          },
+          {
+            "key": "m_larec",
+            "label": "LA_REC_YAW (deg)  -- recorded yaw at aim"
+          },
+          {
+            "key": "m_blnd",
+            "label": "BLEND (confirms SET HEAD_BLEND)"
+          }
+        ],
+        "result_keys": []
+      },
+      {
+        "name": "Comm Diag (TELSTATS)",
+        "fields": [
+          {
+            "key": "tcp",
+            "label": "TCP_STATUS (0/1)"
+          },
+          {
+            "key": "alive",
+            "label": "CPU1_ALIVE (0/1)"
+          },
+          {
+            "key": "wd",
+            "label": "CPU1_DEAD (1=hang!)"
+          },
+          {
+            "key": "txb",
+            "label": "TX_TOTAL_BYTES"
+          },
+          {
+            "key": "rxb",
+            "label": "RX_TOTAL_BYTES"
+          },
+          {
+            "key": "txo",
+            "label": "TX_OVERFLOW (drops)"
+          },
+          {
+            "key": "rxo",
+            "label": "RX_OVERFLOW (drops)"
+          },
+          {
+            "key": "txfail",
+            "label": "TX_SEND_FAIL"
+          },
+          {
+            "key": "txhi",
+            "label": "TX_HIGH_WATER (max 4095)"
+          },
+          {
+            "key": "rxhi",
+            "label": "RX_HIGH_WATER (max 2047)"
+          },
+          {
+            "key": "reconn",
+            "label": "RECONNECT_COUNT"
+          },
+          {
+            "key": "ppmm",
+            "label": "PINGPONG_MISMATCH"
+          }
+        ],
+        "result_keys": [
+          {
+            "prefix": "ACK",
+            "var_key": "stats_last_ack"
+          }
+        ]
+      }
+    ],
+    "command_tabs": [
+      {
+        "name": "Turn PID",
+        "buttons": [
+          {
+            "label": "GET TURN PID",
+            "command": "GET TURN PID"
+          },
+          {
+            "label": "START STREAM TURN",
+            "command": "START STREAM TURN 50"
+          },
+          {
+            "label": "STOP STREAM TURN",
+            "command": "STOP STREAM TURN"
+          },
+          {
+            "label": "GET ONCE TURN",
+            "command": "GET ONCE TURN"
+          },
+          {
+            "label": "SAVE TURN PID",
+            "command": "SAVE TURN PID"
+          }
+        ],
+        "params": [
+          {
+            "label": "Kp (0~1000)",
+            "prefix": "SET TURN KP"
+          },
+          {
+            "label": "Ki (0~100)",
+            "prefix": "SET TURN KI"
+          },
+          {
+            "label": "Kd (0~200)",
+            "prefix": "SET TURN KD"
+          },
+          {
+            "label": "PID 三项 (kp ki kd)",
+            "prefix": "SET TURN PID"
+          }
+        ]
+      },
+      {
+        "name": "Drive PID",
+        "buttons": [
+          {
+            "label": "GET LEFT PID",
+            "command": "GET DRIVE LEFT PID"
+          },
+          {
+            "label": "GET RIGHT PID",
+            "command": "GET DRIVE RIGHT PID"
+          },
+          {
+            "label": "START STREAM DRIVE",
+            "command": "START STREAM DRIVE 50"
+          },
+          {
+            "label": "STOP STREAM DRIVE",
+            "command": "STOP STREAM DRIVE"
+          },
+          {
+            "label": "GET ONCE DRIVE",
+            "command": "GET ONCE DRIVE"
+          },
+          {
+            "label": "SAVE LEFT PID",
+            "command": "SAVE DRIVE LEFT PID"
+          },
+          {
+            "label": "SAVE RIGHT PID",
+            "command": "SAVE DRIVE RIGHT PID"
+          }
+        ],
+        "params": [
+          {
+            "label": "L Kp",
+            "prefix": "SET DRIVE LEFT KP"
+          },
+          {
+            "label": "L Ki",
+            "prefix": "SET DRIVE LEFT KI"
+          },
+          {
+            "label": "L Kd",
+            "prefix": "SET DRIVE LEFT KD"
+          },
+          {
+            "label": "L PID 三项 (kp ki kd)",
+            "prefix": "SET DRIVE LEFT PID"
+          },
+          {
+            "label": "R Kp",
+            "prefix": "SET DRIVE RIGHT KP"
+          },
+          {
+            "label": "R Ki",
+            "prefix": "SET DRIVE RIGHT KI"
+          },
+          {
+            "label": "R Kd",
+            "prefix": "SET DRIVE RIGHT KD"
+          },
+          {
+            "label": "R PID 三项 (kp ki kd)",
+            "prefix": "SET DRIVE RIGHT PID"
+          }
+        ]
+      },
+      {
+        "name": "Streams",
+        "buttons": [
+          {
+            "label": "LIST",
+            "command": "LIST STREAMS"
+          },
+          {
+            "label": "REFRESH",
+            "command": "GET STREAMS"
+          },
+          {
+            "label": "STOP ALL",
+            "command": "STOP ALL STREAMS"
+          }
+        ],
+        "params": []
+      },
+      {
+        "name": "Yaw Cmds (Aux)",
+        "buttons": [
+          {
+            "label": "GET YAW",
+            "command": "GET YAW"
+          },
+          {
+            "label": "YAW ZERO (1s)",
+            "command": "YAW ZERO"
+          },
+          {
+            "label": "YAW TEST START",
+            "command": "YAW TEST START"
+          },
+          {
+            "label": "YAW TEST STOP",
+            "command": "YAW TEST STOP"
+          },
+          {
+            "label": "SAVE YAW",
+            "command": "SAVE YAW"
+          }
+        ],
+        "params": [
+          {
+            "label": "YAW_BIAS (-50~50 dps)",
+            "prefix": "SET YAW_BIAS"
+          },
+          {
+            "label": "YAW_SCALE (0.5~2.0)",
+            "prefix": "SET YAW_SCALE"
+          }
+        ]
+      },
+      {
+        "name": "Mission",
+        "buttons": [
+          {
+            "label": "GET MISSION",
+            "command": "GET MISSION"
+          },
+          {
+            "label": "MISSION RETURN",
+            "command": "MISSION RETURN"
+          },
+          {
+            "label": "MISSION EVENT1",
+            "command": "MISSION EVENT1"
+          },
+          {
+            "label": "MISSION IDLE",
+            "command": "MISSION IDLE"
+          },
+          {
+            "label": "MISSION ABORT (!)",
+            "command": "MISSION ABORT"
+          },
+          {
+            "label": "START STREAM MISSION",
+            "command": "START STREAM MISSION 100"
+          },
+          {
+            "label": "STOP STREAM MISSION",
+            "command": "STOP STREAM MISSION"
+          },
+          {
+            "label": "START STREAM TUNE",
+            "command": "START STREAM TUNE 50"
+          },
+          {
+            "label": "START STREAM LOOKA",
+            "command": "START STREAM LOOKA 50"
+          }
+        ],
+        "params": []
+      },
+      {
+        "name": "Comm Diag",
+        "buttons": [
+          {
+            "label": "GET ONCE STATS",
+            "command": "GET ONCE STATS"
+          },
+          {
+            "label": "START STREAM STATS",
+            "command": "START STREAM STATS 1000"
+          },
+          {
+            "label": "STOP STREAM STATS",
+            "command": "STOP STREAM STATS"
+          }
+        ],
+        "params": []
+      }
+    ]
   },
-
   "simulation": {
-    "enabled": true,
-    "prefix": "TELG"
+    "enabled": false,
+    "prefix": "TELTURN"
   },
-
-  "custom_state_file": null,
-
-  "auto_open_browser": false
+  "custom_state_file": "latest_tuning_state.json",
+  "auto_open_browser": true,
+  "auto_start_tcp": true,
+  "bridge_extension": "bridge_ext.py",
+  "tcp_host": "0.0.0.0",
+  "tcp_port": "8080",
+  "heartbeat": {
+    "enabled": true,
+    "command": "HB",
+    "interval_ms": 500
+  }
 }

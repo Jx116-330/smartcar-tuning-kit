@@ -14,6 +14,27 @@ from pathlib import Path
 
 
 # ---------------------------------------------------------------------------
+# Bridge extension sentinel (2026-09-14 设计文档 §1)
+# ---------------------------------------------------------------------------
+class _Unset:
+    """键未声明(区别于显式 null)。三态 str | None | UNSET 必须在
+    _DEFAULTS 深合并后仍可区分:__init__ 的 deep_merge 会把 default 值
+    灌进缺键,所以 _DEFAULTS 刻意不含 bridge_extension,缺省由此保留。"""
+    _instance = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
+    def __repr__(self):
+        return 'UNSET'
+
+
+UNSET = _Unset()
+
+
+# ---------------------------------------------------------------------------
 # Path helpers (PyInstaller compatible)
 # ---------------------------------------------------------------------------
 def app_dir() -> Path:
@@ -30,6 +51,53 @@ def resource_path(relative: str) -> Path:
     if hasattr(sys, '_MEIPASS'):
         return Path(sys._MEIPASS) / relative
     return Path(__file__).resolve().parent / relative
+
+
+# ---------------------------------------------------------------------------
+# Profile resolution (契约 v1, 设计文档 §2a / docs/protocol_contract_v1.md §5)
+# ---------------------------------------------------------------------------
+def _profile_from_argv() -> str | None:
+    """从命令行解析 --profile <name> / --profile=<name>(exe 与源码同参)。
+    在 import 时执行,保证 cfg 在模块级消费前已定稿。"""
+    argv = sys.argv
+    for i, a in enumerate(argv):
+        if a == '--profile' and i + 1 < len(argv):
+            return argv[i + 1].strip() or None
+        if a.startswith('--profile='):
+            return a.split('=', 1)[1].strip() or None
+    return None
+
+
+PROFILE_NAME = _profile_from_argv()
+
+
+def _profile_dir() -> Path | None:
+    """profiles/<name>/ 目录;不存在返回 None(回退根目录配置)。"""
+    if PROFILE_NAME:
+        d = app_dir() / 'profiles' / PROFILE_NAME
+        if d.is_dir():
+            return d
+    return None
+
+
+def _config_path() -> Path | None:
+    if PROFILE_NAME:
+        p = app_dir() / 'profiles' / PROFILE_NAME / 'config.json'
+        if p.is_file():
+            return p
+    p = app_dir() / 'config.json'
+    return p if p.is_file() else None
+
+
+def profile_schema_path() -> Path | None:
+    """当前生效的 control_schema.json 路径(profile 优先,回退根目录)。
+    /schema 端点与 schema_hash 版本锚共用此决议,保证两处永远同源。"""
+    if PROFILE_NAME:
+        p = app_dir() / 'profiles' / PROFILE_NAME / 'control_schema.json'
+        if p.is_file():
+            return p
+    p = app_dir() / 'control_schema.json'
+    return p if p.is_file() else None
 
 
 # ---------------------------------------------------------------------------
@@ -53,6 +121,13 @@ class Config:
             'telemetry_prefixes': ['TEL', 'TELG', 'TELA'],
             'response_prefixes': ['ACK', 'ERR'],
             'key_map': {},
+            # 契约 v1 字段(默认 kv = 原车行为,老 config 无感):
+            # frame_mode: kv=key=value 帧 / csv=位置式 D 帧(docs/protocol_contract_v1.md)
+            # channels:  csv 模式下 {通道名: [列序字段名]},列序与固件逐列一致
+            # err_prefixes: 回执里属"错误"的前缀,用于 /batch 状态判定(ack 集合=response-err)
+            'frame_mode': 'kv',
+            'channels': {},
+            'err_prefixes': ['ERR'],
         },
         'ui': {
             'plot_channels': [
@@ -100,6 +175,23 @@ class Config:
         },
         'custom_state_file': None,
         'auto_open_browser': False,
+        # 启动时自动开 TCP 服务（按 network.tcp_host / tcp_port 监听）。
+        # 默认 False 保持原行为；置 True 让工具一启动就监听，自动化驱动场景必备。
+        'auto_start_tcp': False,
+        'tcp_host': '0.0.0.0',
+        'tcp_port': '8080',
+        # 自动心跳(2026-06-10):TCP 有客户端连着就由桥周期性发心跳命令刷新
+        # 固件 Gate8(心跳超时 abort)计时,不再需要外部脚本保活。默认 'HB'——
+        # 固件专用心跳:刷新 last_cmd_rx_ms 后【不回任何响应】(见 tuning_dispatch.c),
+        # 所以零污染 cmd_result、不会注入 ACK 干扰 dump/upload 的 ACK 步进协议。
+        # (老固件无 HB handler 会回 ERR,桥已对心跳命令的响应做 cmd_result 抑制。)
+        'heartbeat': {
+            'enabled': True,
+            'command': 'HB',
+            # 500ms:< 固件默认 Gate8 超时 800ms,所以即使没设 HEARTBEAT_TIMEOUT 也不假
+            # 触发;配 5000ms 超时则可容 ~9 次丢包(抗 wifi 瞬断)。HB 无响应,2Hz 极廉价。
+            'interval_ms': 500,
+        },
     }
 
     def __init__(self, data: dict | None = None):
@@ -171,6 +263,28 @@ class Config:
         return self._raw['protocol']['key_map']
 
     @property
+    def FRAME_MODE(self) -> str:
+        """kv=key=value 帧(原车) / csv=位置式 D 帧(契约 v1)。"""
+        return str(self._raw['protocol'].get('frame_mode', 'kv')).lower()
+
+    @property
+    def CHANNELS(self) -> dict:
+        """csv 模式列序表:{通道名: [字段名...]}。兼容 {'fields': [...]} 与裸数组两种写法。"""
+        ch = self._raw['protocol'].get('channels', {}) or {}
+        out = {}
+        for name, defn in ch.items():
+            if isinstance(defn, dict):
+                out[str(name)] = [str(f) for f in defn.get('fields', [])]
+            elif isinstance(defn, list):
+                out[str(name)] = [str(f) for f in defn]
+        return out
+
+    @property
+    def ERR_PREFIXES(self) -> tuple:
+        """回执里属"错误"的前缀(/batch 判 err 用;ack 集合 = response - err)。"""
+        return tuple(self._raw['protocol'].get('err_prefixes', ['ERR']))
+
+    @property
     def PLOT_KEYS(self) -> list[tuple]:
         return self._kcv_list(self._raw['ui']['plot_channels'])
 
@@ -215,8 +329,42 @@ class Config:
         return self._raw['simulation'].get('enabled', True)
 
     @property
+    def AUTO_START_TCP(self) -> bool:
+        return bool(self._raw.get('auto_start_tcp', False))
+
+    @property
+    def TCP_HOST(self) -> str:
+        return str(self._raw.get('tcp_host', '0.0.0.0'))
+
+    @property
+    def TCP_PORT(self) -> str:
+        return str(self._raw.get('tcp_port', '8080'))
+
+    @property
+    def HEARTBEAT_ENABLED(self) -> bool:
+        return bool(self._raw.get('heartbeat', {}).get('enabled', True))
+
+    @property
+    def HEARTBEAT_COMMAND(self) -> str:
+        return str(self._raw.get('heartbeat', {}).get('command', 'HB'))
+
+    @property
+    def HEARTBEAT_INTERVAL_MS(self) -> int:
+        return int(self._raw.get('heartbeat', {}).get('interval_ms', 2000))
+
+    @property
     def AUTO_OPEN_BROWSER(self) -> bool:
         return self._raw.get('auto_open_browser', False)
+
+    @property
+    def BRIDGE_EXTENSION(self):
+        """桥扩展声明三态:str(app_dir() 相对路径)| None(显式关闭)| UNSET(未声明)。
+        UNSET 的语义由调用方决议:仅根布局(无 --profile)时尝试约定名
+        bridge_ext.py(旧 dist 兼容);命名 profile 缺键 = 无扩展。"""
+        v = self._raw.get('bridge_extension', UNSET)
+        if v is UNSET or v is None:
+            return v
+        return str(v)
 
     # -- simulation (generic, config-driven) ----------------------------
     def build_simulated_packet(self, tick: int) -> str | None:
@@ -282,9 +430,9 @@ class Config:
 # Load config with priority chain
 # ---------------------------------------------------------------------------
 def _load_config():
-    """Priority: config.json > tuning_config.py (dev fallback) > defaults."""
-    json_path = app_dir() / 'config.json'
-    if json_path.exists():
+    """Priority: profiles/<name>/config.json(--profile)> config.json > tuning_config.py(dev fallback) > defaults."""
+    json_path = _config_path()
+    if json_path is not None:
         try:
             with open(json_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
