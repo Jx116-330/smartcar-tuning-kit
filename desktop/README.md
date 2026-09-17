@@ -1,11 +1,14 @@
 # tcp_tool — 智能车调参 PC 工具仓
 
-> **本目录是 [smartcar-tuning-kit](../README.md) 的桌面调参工具（desktop tool）**，
-> 基线版本 `2026-09-14.bridge-ext-v1`。架构 = 通用桥核（TCP↔HTTP）+ config 驱动
-> + Web 控制台 + TPE 优化器 + 安全护栏 + MCP 工具面 + 桥扩展机制 + headless 服务模式。
-> 私有调车历史档案（TUNING_*/HANDOFF/NEXT_SESSION/attic）与本地凭证
-> （`xfyun_credentials.py`）**不随本公开仓库分发**。
-> 设计文档见 [`docs/`](docs/)。
+> **通用调参框架**（2026-08-13 起）：面向多被调对象——通用桥核（config 驱动，
+> 核内零被调对象语义）+ schema 驱动 Web 控制台 + TPE 优化器 + 安全护栏 + MCP
+> 工具面 + 桥扩展机制 + headless 服务模式。基线版本 `2026-09-14.bridge-ext-v1`。
+>
+> **2026-09-17 瘦身**：原车（已退役）领域遗产脚本——录制线回传/字节备份、
+> 趟归档、板级快照、离线线优化 pipeline（path_pipeline 一族）、XY 影子链、
+> 编码器/字库诊断配套、matlab 可视化、attic 存档、四份调车历史文档
+> （TUNING_*/HANDOFF/NEXT_SESSION）——已从工作树删除。需要考古时从 git
+> 历史恢复，例：`git show 842a1d2:track_dump.py`、`git show 842a1d2:attic/README.md`。
 
 ## 桥 / 网页 UI
 
@@ -22,41 +25,25 @@
 | `dashboard.html` | 旧版单文件调参台，保留为 `/dashboard` 回退入口（设计文档 §6.4；轨迹页依赖 bridge_ext 的 `/trajectory` 端点） |
 | `build.bat` / `smartcar.spec` / `smartcar_console.spec` | PyInstaller 重打 exe（先 `npm run build`，无 npm 打 warning 跳过用旧产物）；双产物 = 窗口版 `YawTuningTool.exe` + 控制台版 `YawTuningToolConsole.exe`（headless/服务场景）；dist 复制策略 = 代码文件覆盖、配置仅缺失时复制 |
 
-## 调车会话（原车领域脚本，保留可复用）
+## 框架核心
 
 | 文件 | 用途 |
 |---|---|
 | `session_driver.py` | 会话驱动命令入口（`--do recipe.json` / `--sweep` / `--optimize opt.json` TPE 贝叶斯 / `--diff a b` 跨趟对比 / `--json` / 退出码 0/2/3/4/5；护栏预检 + 趟级自动回滚 + 审计） |
 | `optimizer.py` | 预算感知 TPE 贝叶斯优化器（P0-1；stdlib-only；多目标 Pareto 层；确定性 seed） |
 | `guardrails.py` | 通用护栏引擎 + append-only 审计（P0-2；黑名单/值域/步长/回滚判定 schema 驱动，桥/session_driver/mcp_server 三层共用） |
-| `archive.py` | 趟归档系统（数据已清空，脚本通用可复用） |
-| `track_dump.py` / `track_upload.py` | 录制线回传 / 优化线上传（原车语义） |
-
-## 离线路径 / 仿真
-
-| 文件 | 用途 |
-|---|---|
-| `path_pipeline.py` | 线优化一条龙（dump→平滑→优化→κ体检→sim） |
-| `path_optimizer.py` / `sim_pure_pursuit.py` / `vehicle_params.py` | pipeline 的依赖（优化器 / 仿真 / 车参） |
-| `xy_shadow_analysis.py` | XY 投影影子链离线分析（原车固件配套） |
-
-⚠ sim_pure_pursuit 的控制律仍是旧版：κ/几何体检仍权威，控制行为结论不可信。
-
-## 诊断 / 固件配套
-
-| 文件 | 用途 |
-|---|---|
-| `enc_diag_run.py` | 转向编码器台架自检驱动（原车固件命令） |
-| `asr_bridge.py` | 讯飞 ASR 代理 —— exe 打包依赖（smartcar.spec hiddenimports），别动；凭证 `xfyun_credentials.py` 永不入库 |
-| `gen_selfcheck_font.py` | 整车自检菜单中文字库生成器（原车固件配套） |
+| `score_engine.py` + `score_profile.json` | 配置驱动评分引擎 + 分段归因（"丢分在哪"），权重/阈值全在 profile 数据文件 |
+| `mcp_server.py` | agent 工具面（stdio MCP：get_snapshot/get_schema/set_params/propose_params/run_experiment/list_runs/get_score/diff_runs） |
+| `asr_bridge.py` / `asr_vocab.py` | 讯飞 ASR 代理与命令规整器——`bridge_ext.py` 的运行依赖（凭证 `xfyun_credentials.py` 永不入库；spec hiddenimports 同步）；通用核不引用 |
+| `camera_capture.py` | 相机镜像识别——`bridge_ext.py` 的运行依赖（CIMG 流解析/帧识别/会话存档） |
+| `test_asr_bridge.py` / `test_asr_vocab.py` / `test_camera_capture.py` | 上述三个依赖模块的单元测试 |
 
 ## 目录
 
 | 目录 | 内容 |
 |---|---|
-| `dist/` | 打包产物 + exe 运行时（遥测历史已删除，exe 启动自动重建空文件） |
-| `runtime/` | 从源码跑 tuning_tool.py 时的运行时目录（已清空） |
-| `matlab/` | MATLAB 可视化层（原车配套） |
-| `attic/` | 过时代/一次性产物存档（清单 attic/README.md，留档不删） |
+| `dist/` | 打包产物 + exe 运行时（runtime 数据自动重建；冻结态验收以 `dist/bridge_ext.py` 为新鲜度标志） |
+| `runtime/` | 从源码跑 `tuning_tool.py` 时的运行时目录（护栏审计 audit.jsonl、遥测、相机帧；可清，自动重建） |
+| `recordings/` | 趟次库 `runs.jsonl`（session_driver 写，自动重建） |
 | `docs/` | 设计文档（现行 = `2026-09-14-bridge-extension-headless.md` 桥扩展机制与 headless；下游 `2026-08-14-p0-smart-optimizer-guardrails-attribution.md`；上游 `2026-08-13-agent-efficiency-and-web-redesign.md` 与 `2026-08-13-agent-auto-tuning-p1-p2-p4.md`） |
 | `tests/` | P0 回归套件：`run_p0_checks.py` 十套件一键全跑（冻结态套件缺 exe 产物时显式 SKIP 分级汇总，不算 PASS）；发布验收 = build 后 `python tests/test_frozen_headless.py --require` |

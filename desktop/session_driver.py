@@ -206,6 +206,7 @@ def bench_check():
     if cr.get("ack") == "ACK":
         print("    -> 固件带上传族 ✓ 录制已存 flash 槽 0 ✓")
         print("    -> 可直接: python track_upload.py paths/time32_final_upload.json --save-slot 1")
+        print("       (track_upload.py 已随旧车遗产清理移除,需要时 git show 恢复)")
         print("       然后 TRACK LOAD 0 还原原线(跑基线), TRACK LOAD 1 切优化线")
     return 0
 
