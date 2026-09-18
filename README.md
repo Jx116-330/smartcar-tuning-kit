@@ -1,20 +1,22 @@
 # SmartCar Tuning Kit
 
-An open-source tuning toolkit for smart car (and other embedded) projects: a portable C library for the MCU side, and a Python **TCP↔HTTP bridge + Web console** for the desktop side — monitoring, parameter tuning, automated optimization and safety-guarded experimentation.
+An open-source tuning toolkit for smart car (and other embedded) projects: a Python **TCP↔HTTP bridge + Web console** for the desktop side — monitoring, parameter tuning, automated optimization and safety-guarded experimentation — plus a single-file C99 reference implementation for the MCU side.
 
 > **v2 baseline (2026-09)** — the `desktop/` half has been rebuilt around a generic
 > bridge core: schema-driven Web UI, TPE Bayesian optimizer, declarative guardrails,
 > MCP tool surface for AI agents, a bridge-extension mechanism for device-specific
-> features, and a headless service mode. The legacy `firmware/` library keeps working
-> with it via the original `key=value` protocol. 中文详细文档见 [`desktop/README.md`](desktop/README.md)
+> features, and a headless service mode. The desktop bridge still accepts the legacy
+> `key=value` wire protocol for firmware already flashed with it (spec in
+> [`protocol.md`](protocol.md)); the old MCU reference library is no longer in the
+> tree and lives in git history. 中文详细文档见 [`desktop/README.md`](desktop/README.md)
 > 与 [`desktop/docs/`](desktop/docs/)。
 
 ## What's inside
 
 ```
 desktop/     Python bridge (TCP 8080 ↔ HTTP 9898) + web console + tooling
-firmware/    Portable C library for the car MCU (legacy key=value protocol)
-protocol.md  Wire protocol reference for the legacy firmware library
+             (incl. firmware_kit/ — single-file C99 reference for the car MCU)
+protocol.md  Wire protocol reference for the legacy key=value firmware protocol
 ```
 
 ## Desktop tool highlights
@@ -63,8 +65,9 @@ python tests/test_frozen_headless.py --require   # release gate after build.bat
 
 - **New devices** — see [`desktop/docs/protocol_contract_v1.md`](desktop/docs/protocol_contract_v1.md)
   and the single-file C99 reference implementation in [`desktop/firmware_kit/`](desktop/firmware_kit/) (line protocol, channel scheduling, `SET/RATE/GET/PING`, `!<seq>` receipts)
-- **Legacy MCU library** — copy `firmware/` into your project, implement the HAL
-  callbacks (`send`/`recv`/`is_connected`), see `protocol.md`
+- **Legacy key=value protocol** — the wire spec lives in [`protocol.md`](protocol.md); the old
+  MCU reference library (`firmware/`) was removed from the tree and is recoverable
+  from git history (pre-2026-09 releases)
 
 ### Packaging (Windows)
 

@@ -1,5 +1,11 @@
 # SmartCar Tuning Kit - Wire Protocol Specification
 
+> **Note (2026-09):** the legacy MCU reference library (`firmware/`) that implemented
+> this protocol has been removed from the repository — recover it from git history
+> (pre-2026-09 releases) if needed. The desktop bridge still accepts this wire
+> protocol for devices already flashed with it. New devices should integrate via
+> `desktop/firmware_kit/` (see `desktop/docs/protocol_contract_v1.md`).
+
 ## Overview
 
 Line-based ASCII protocol over TCP. Human-readable, easy to debug with any terminal tool.
